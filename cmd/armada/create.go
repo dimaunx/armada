@@ -59,12 +59,12 @@ type flagpole struct {
 }
 
 type Cluster struct {
+	Cni                 string
 	Name                string
 	PodSubnet           string
 	ServiceSubnet       string
 	DNSDomain           string
 	KubeAdminApiVersion string
-	DefaultCni          bool
 }
 
 type KubeConfig struct {
@@ -96,7 +96,7 @@ type KubeConfig struct {
 	} `yaml:"users"`
 }
 
-// Get different kubeconfig paths for local and docker runs
+// Get different kubeconfig paths for local and docker based runs
 func (cl *Cluster) GetKubeConfigPath() (string, error) {
 	currentDir, err := os.Getwd()
 	if err != nil {
@@ -166,7 +166,7 @@ func (cl *Cluster) GetMasterDockerIp() (string, error) {
 func (cl *Cluster) CreateCluster(flags *flagpole, cf string) error {
 	// create a cluster context and create the cluster
 	ctx := cluster.NewContext(cl.Name)
-	log.Infof("Creating cluster %q ...\n", cl.Name)
+	log.Infof("Creating cluster %q, cni: %s, podcidr: %s, servicecidr: %s ...", cl.Name, cl.Cni, cl.PodSubnet, cl.ServiceSubnet)
 
 	if err := ctx.Create(
 		create.WithConfigFile(cf),
@@ -286,7 +286,7 @@ func (cl *Cluster) WaitForCoreDnsDeployment(kf string) error {
 
 	ctx := context.Background()
 	weaveTimeout := 5 * time.Minute
-	log.Infof("Waiting up to %v for coredns deployment %s...", weaveTimeout, cl.Name)
+	log.Infof("Waiting up to %v for coredns pods to be ready %s...", weaveTimeout, cl.Name)
 	corednsContext, cancel := context.WithTimeout(ctx, weaveTimeout)
 	wait.Until(func() {
 		corednsDeployment, err := clientset.AppsV1().Deployments("kube-system").Get("coredns", metav1.GetOptions{})
@@ -322,7 +322,7 @@ func (cl *Cluster) WaitForTillerDeployment(kf string) error {
 
 	ctx := context.Background()
 	tillerTimeout := 5 * time.Minute
-	log.Infof("Waiting up to %v for tiller to be created %s...", tillerTimeout, cl.Name)
+	log.Infof("Waiting up to %v for tiller pods to be ready %s...", tillerTimeout, cl.Name)
 	tillerContext, cancel := context.WithTimeout(ctx, tillerTimeout)
 	wait.Until(func() {
 		tillerDeployment, err := clientset.ExtensionsV1beta1().Deployments("kube-system").Get("tiller-deploy", metav1.GetOptions{})
@@ -521,12 +521,12 @@ func CreateEnvironment(i int, flags *flagpole, wg *sync.WaitGroup) error {
 	serviceIp[1] += byte(i)
 
 	cl := &Cluster{
+		Cni:                 "kindnet",
 		Name:                "cl" + strconv.Itoa(i),
 		PodSubnet:           podIp.String() + "/14",
 		ServiceSubnet:       serviceIp.String() + "/16",
 		DNSDomain:           "cl" + strconv.Itoa(i) + ".local",
 		KubeAdminApiVersion: "",
-		DefaultCni:          true,
 	}
 
 	// TODO convert image k8s version to float
@@ -558,7 +558,7 @@ func CreateEnvironment(i int, flags *flagpole, wg *sync.WaitGroup) error {
 	}
 
 	if flags.Weave {
-		cl.DefaultCni = false
+		cl.Cni = "weave"
 		flags.Wait = 0
 
 		err = cl.GenerateConfig(kindConfigFilePath, clusterConfigTemplate.String())
@@ -603,7 +603,7 @@ func CreateEnvironment(i int, flags *flagpole, wg *sync.WaitGroup) error {
 		}
 
 	} else if flags.Flannel {
-		cl.DefaultCni = false
+		cl.Cni = "flannel"
 		flags.Wait = 0
 
 		err = cl.GenerateConfig(kindConfigFilePath, clusterConfigTemplate.String())
@@ -648,7 +648,7 @@ func CreateEnvironment(i int, flags *flagpole, wg *sync.WaitGroup) error {
 		}
 
 	} else if flags.Calico {
-		cl.DefaultCni = false
+		cl.Cni = "calico"
 		flags.Wait = 0
 
 		err = cl.GenerateConfig(kindConfigFilePath, clusterConfigTemplate.String())
@@ -681,7 +681,7 @@ func CreateEnvironment(i int, flags *flagpole, wg *sync.WaitGroup) error {
 			return errors.Wrapf(err, "%s", cl.Name)
 		}
 
-		t, err := template.New("flannel").Parse(calicoDeploymentTemplate.String())
+		t, err := template.New("calico").Parse(calicoDeploymentTemplate.String())
 		if err != nil {
 			return errors.Wrapf(err, "%s", cl.Name)
 		}
