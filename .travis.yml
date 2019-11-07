@@ -1,0 +1,34 @@
+language: go
+go: '1.12.x'
+git:
+  depth: 1
+env:
+  global:
+    - GO111MODULE=on
+    - GOPROXY=https://proxy.golang.org
+services:
+  - docker
+jobs:
+  include:
+    - stage: "Test"
+      script: |
+        make build && cd ./bin && \
+        ./armada create clusters -n 1 && \
+        ./armada create clusters -n 2 --image kindest/node:v1.14.6 --weave && \
+        ./armada create clusters -n 3 --flannel
+      name: "local test"
+    - script: |
+        make docker-build && \
+        make docker-run ARGS="./armada create clusters -n 1" && \
+        make docker-run ARGS="./armada create clusters -n 2 --image kindest/node:v1.14.6 --weave" && \
+        make docker-run ARGS="./armada create clusters -n 3 --flannel"
+      name: "docker test"
+    - stage: "Release"
+      script: skip
+      deploy:
+        provider: script
+        skip_cleanup: true
+        script: curl -sL https://git.io/goreleaser | bash
+        on:
+          tags: true
+          condition: $TRAVIS_OS_NAME = linux
