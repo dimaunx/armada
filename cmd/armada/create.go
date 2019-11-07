@@ -31,6 +31,7 @@ import (
 	apiextv1beta "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apiextscheme "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/scheme"
+	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -95,6 +96,7 @@ type KubeConfig struct {
 	} `yaml:"users"`
 }
 
+// Get different kubeconfig paths for local and docker runs
 func (cl *Cluster) GetKubeConfigPath() (string, error) {
 	currentDir, err := os.Getwd()
 	if err != nil {
@@ -140,6 +142,7 @@ func (cl *Cluster) GetKubeConfigPath() (string, error) {
 	return kubeConfigFilePath, nil
 }
 
+// Get control plain master docker internal ip
 func (cl *Cluster) GetMasterDockerIp() (string, error) {
 	ctx := context.Background()
 	dockerCli, err := dockerclient.NewEnvClient()
@@ -393,19 +396,19 @@ func (cl *Cluster) DeployTiller(df string, kf string) error {
 	return nil
 }
 
-// Deploy weave
-func (cl *Cluster) DeployWeave(df string, kf string) error {
+// Deploy resources from yaml file
+func (cl *Cluster) DeployResources(df string, kf string, rn string) error {
 	config, err := clientcmd.BuildConfigFromFlags("", kf)
 	if err != nil {
 		return err
 	}
 
-	clientset, err := kubernetes.NewForConfig(config)
+	clientSet, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return err
 	}
 
-	acceptedK8sTypes := regexp.MustCompile(`(Role|ClusterRole|RoleBinding|ClusterRoleBinding|ServiceAccount|DaemonSet)`)
+	acceptedK8sTypes := regexp.MustCompile(`(Role|RoleBinding|ClusterRole|ClusterRoleBinding|ServiceAccount|ConfigMap|DaemonSet|Deployment)`)
 	fileAsString := df[:]
 	sepYamlfiles := strings.Split(fileAsString, "---")
 	for _, f := range sepYamlfiles {
@@ -426,172 +429,97 @@ func (cl *Cluster) DeployWeave(df string, kf string) error {
 		} else {
 			switch o := obj.(type) {
 			case *corev1.ServiceAccount:
-				result, err := clientset.CoreV1().ServiceAccounts(o.Namespace).Create(o)
-				if err != nil && strings.Contains(err.Error(), "already exists") {
-					log.Debugf("✔ %s %s", err.Error(), cl.Name)
-				} else if err != nil {
+				result, err := clientSet.CoreV1().ServiceAccounts(o.Namespace).Create(o)
+				if err != nil && !apierr.IsAlreadyExists(err) {
 					return err
 				} else {
-					log.Debugf("✔ Weave service account %s created for %s at: %s", o.Name, cl.Name, result.CreationTimestamp)
-				}
-			case *rbacv1.ClusterRole:
-				result, err := clientset.RbacV1().ClusterRoles().Create(o)
-				if err != nil && strings.Contains(err.Error(), "already exists") {
-					log.Debugf("✔ %s %s", err.Error(), cl.Name)
-				} else if err != nil {
-					return err
-				} else {
-					log.Debugf("✔ Weave cluster role %s created for %s at: %s", o.Name, cl.Name, result.CreationTimestamp)
-				}
-			case *rbacv1.ClusterRoleBinding:
-				result, err := clientset.RbacV1().ClusterRoleBindings().Create(o)
-				if err != nil && strings.Contains(err.Error(), "already exists") {
-					log.Debugf("✔ %s %s", err.Error(), cl.Name)
-				} else if err != nil {
-					return err
-				} else {
-					log.Debugf("✔ Weave cluster role binding %s created for %s at: %s", o.Name, cl.Name, result.CreationTimestamp)
+					log.Debugf("✔ ServiceAccount %s was created for %s at: %s", o.Name, cl.Name, result.CreationTimestamp)
 				}
 			case *rbacv1.Role:
-				result, err := clientset.RbacV1().Roles(o.Namespace).Create(o)
-				if err != nil && strings.Contains(err.Error(), "already exists") {
-					log.Debugf("✔ %s %s", err.Error(), cl.Name)
-				} else if err != nil {
+				result, err := clientSet.RbacV1().Roles(o.Namespace).Create(o)
+				if err != nil && !apierr.IsAlreadyExists(err) {
 					return err
 				} else {
-					log.Debugf("✔ Weave role %s created for %s at: %s", o.Name, cl.Name, result.CreationTimestamp)
+					log.Debugf("✔ Role %s created for %s at: %s", o.Name, cl.Name, result.CreationTimestamp)
 				}
 			case *rbacv1.RoleBinding:
-				result, err := clientset.RbacV1().RoleBindings(o.Namespace).Create(o)
-				if err != nil && strings.Contains(err.Error(), "already exists") {
-					log.Debugf("✔ %s %s", err.Error(), cl.Name)
-				} else if err != nil {
+				result, err := clientSet.RbacV1().RoleBindings(o.Namespace).Create(o)
+				if err != nil && !apierr.IsAlreadyExists(err) {
 					return err
 				} else {
-					log.Debugf("✔ Weave role binding %s created for %s at: %s", o.Name, cl.Name, result.CreationTimestamp)
-				}
-			case *extv1beta.DaemonSet:
-				_, err := clientset.ExtensionsV1beta1().DaemonSets(o.Namespace).Create(o)
-				if err != nil && strings.Contains(err.Error(), "already exists") {
-					log.Infof("✔ %s %s", err.Error(), cl.Name)
-				} else if err != nil {
-					return err
-				} else {
-					log.Debugf("✔ Weave daemon set %s created for %s.", o.Name, cl.Name)
-				}
-			}
-		}
-	}
-	log.Infof("✔ Weave was deployed to %s.", cl.Name)
-	return nil
-}
-
-// Deploy flannel
-func (cl *Cluster) DeployFlannel(df string, kf string) error {
-	config, err := clientcmd.BuildConfigFromFlags("", kf)
-	if err != nil {
-		return err
-	}
-
-	clientset, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		return err
-	}
-
-	acceptedK8sTypes := regexp.MustCompile(`(PodSecurityPolicy|ClusterRole|ClusterRoleBinding|ServiceAccount|ConfigMap|DaemonSet)`)
-	fileAsString := df[:]
-	sepYamlfiles := strings.Split(fileAsString, "---")
-	for _, f := range sepYamlfiles {
-		if f == "\n" || f == "" {
-			// ignore empty cases
-			continue
-		}
-
-		decode := scheme.Codecs.UniversalDeserializer().Decode
-		obj, groupVersionKind, err := decode([]byte(f), nil, nil)
-
-		if err != nil {
-			return errors.Wrap(err, "Error while decoding YAML object. Err was: ")
-		}
-
-		if !acceptedK8sTypes.MatchString(groupVersionKind.Kind) {
-			log.Warnf("The file contains K8s object types which are not supported! Skipping object with type: %s", groupVersionKind.Kind)
-		} else {
-			switch o := obj.(type) {
-			case *policyv1beta1.PodSecurityPolicy:
-				result, err := clientset.PolicyV1beta1().PodSecurityPolicies().Create(o)
-				if err != nil && strings.Contains(err.Error(), "already exists") {
-					log.Debugf("✔ %s %s", err.Error(), cl.Name)
-				} else if err != nil {
-					return err
-				} else {
-					log.Debugf("✔ Flannel pod security policy %s was created for %s at: %s", o.Name, cl.Name, result.CreationTimestamp)
-				}
-			case *corev1.ServiceAccount:
-				result, err := clientset.CoreV1().ServiceAccounts(o.Namespace).Create(o)
-				if err != nil && strings.Contains(err.Error(), "already exists") {
-					log.Debugf("✔ %s %s", err.Error(), cl.Name)
-				} else if err != nil {
-					return err
-				} else {
-					log.Debugf("✔ Flannel service account %s was created for %s at: %s", o.Name, cl.Name, result.CreationTimestamp)
+					log.Debugf("✔ RoleBinding %s created for %s at: %s", o.Name, cl.Name, result.CreationTimestamp)
 				}
 			case *rbacv1.ClusterRole:
-				result, err := clientset.RbacV1().ClusterRoles().Create(o)
-				if err != nil && strings.Contains(err.Error(), "already exists") {
-					log.Debugf("✔ %s %s", err.Error(), cl.Name)
-				} else if err != nil {
+				result, err := clientSet.RbacV1().ClusterRoles().Create(o)
+				if err != nil && !apierr.IsAlreadyExists(err) {
 					return err
 				} else {
-					log.Debugf("✔ Flannel cluster role %s was created for %s at: %s", o.Name, cl.Name, result.CreationTimestamp)
+					log.Debugf("✔ ClusterRole %s was created for %s at: %s", o.Name, cl.Name, result.CreationTimestamp)
 				}
 			case *rbacv1.ClusterRoleBinding:
-				result, err := clientset.RbacV1().ClusterRoleBindings().Create(o)
-				if err != nil && strings.Contains(err.Error(), "already exists") {
-					log.Debugf("✔ %s %s", err.Error(), cl.Name)
-				} else if err != nil {
+				result, err := clientSet.RbacV1().ClusterRoleBindings().Create(o)
+				if err != nil && !apierr.IsAlreadyExists(err) {
 					return err
 				} else {
-					log.Debugf("✔ Flannel cluster role binding %s was created for %s at: %s", o.Name, cl.Name, result.CreationTimestamp)
+					log.Debugf("✔ ClusterRoleBinding %s was created for %s at: %s", o.Name, cl.Name, result.CreationTimestamp)
 				}
 			case *corev1.ConfigMap:
-				result, err := clientset.CoreV1().ConfigMaps(o.Namespace).Create(o)
-				if err != nil && strings.Contains(err.Error(), "already exists") {
-					log.Debugf("✔ %s %s", err.Error(), cl.Name)
-				} else if err != nil {
+				result, err := clientSet.CoreV1().ConfigMaps(o.Namespace).Create(o)
+				if err != nil && !apierr.IsAlreadyExists(err) {
 					return err
 				} else {
-					log.Debugf("✔ Flannel config map %s was created for %s at: %s", o.Name, cl.Name, result.CreationTimestamp)
+					log.Debugf("✔ ConfigMap %s was created for %s at: %s", o.Name, cl.Name, result.CreationTimestamp)
+				}
+			case *policyv1beta1.PodSecurityPolicy:
+				result, err := clientSet.PolicyV1beta1().PodSecurityPolicies().Create(o)
+				if err != nil && !apierr.IsAlreadyExists(err) {
+					return err
+				} else {
+					log.Debugf("✔ PodSecurityPolicy %s was created for %s at: %s", o.Name, cl.Name, result.CreationTimestamp)
 				}
 			case *appsv1.DaemonSet:
-				_, err := clientset.AppsV1().DaemonSets(o.Namespace).Create(o)
-				if err != nil && strings.Contains(err.Error(), "already exists") {
-					log.Infof("✔ %s %s", err.Error(), cl.Name)
-				} else if err != nil {
+				result, err := clientSet.AppsV1().DaemonSets(o.Namespace).Create(o)
+				if err != nil && !apierr.IsAlreadyExists(err) {
 					return err
 				} else {
-					log.Debugf("✔ Flannel daemon set %s was created for %s.", o.Name, cl.Name)
+					log.Debugf("✔ Daemonset %s was created for %s at: %s", o.Name, cl.Name, result.CreationTimestamp)
+				}
+			case *extv1beta.DaemonSet:
+				result, err := clientSet.ExtensionsV1beta1().DaemonSets(o.Namespace).Create(o)
+				if err != nil && !apierr.IsAlreadyExists(err) {
+					return err
+				} else {
+					log.Debugf("✔ Daemonset %s was created for %s at: %s.", o.Name, cl.Name, result.CreationTimestamp)
+				}
+			case *appsv1.Deployment:
+				result, err := clientSet.AppsV1().Deployments(o.Namespace).Create(o)
+				if err != nil && !apierr.IsAlreadyExists(err) {
+					return err
+				} else {
+					log.Debugf("✔ Deployment %s was created for %s at: %s", o.Name, cl.Name, result.CreationTimestamp)
+				}
+			case *extv1beta.Deployment:
+				result, err := clientSet.ExtensionsV1beta1().Deployments(o.Namespace).Create(o)
+				if err != nil && !apierr.IsAlreadyExists(err) {
+					return err
+				} else {
+					log.Debugf("✔ Deployment %s created for %s at: %s", o.Name, cl.Name, result.CreationTimestamp)
 				}
 			}
 		}
 	}
-	log.Infof("✔ Flannel was deployed to %s.", cl.Name)
+	log.Infof("✔ %s was deployed to %s.", rn, cl.Name)
 	return nil
 }
 
-// Deploy calico
-func (cl *Cluster) DeployCalico(df string, cf string, kf string) error {
+// Deploy CRD resources from yaml file
+func (cl *Cluster) DeployCrdResources(cf string, kf string) error {
 	config, err := clientcmd.BuildConfigFromFlags("", kf)
 	if err != nil {
 		return err
 	}
 
-	clientset, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		return err
-	}
-
-	extclientset, err := apiextclientset.NewForConfig(config)
+	apiExtClientSet, err := apiextclientset.NewForConfig(config)
 	if err != nil {
 		return err
 	}
@@ -617,96 +545,15 @@ func (cl *Cluster) DeployCalico(df string, cf string, kf string) error {
 		} else {
 			switch o := obj.(type) {
 			case *apiextv1beta.CustomResourceDefinition:
-				_, err := extclientset.ApiextensionsV1beta1().CustomResourceDefinitions().Create(o)
-				if err != nil && strings.Contains(err.Error(), "already exists") {
-					log.Infof("✔ %s %s", err.Error(), cl.Name)
-				} else if err != nil {
+				_, err := apiExtClientSet.ApiextensionsV1beta1().CustomResourceDefinitions().Create(o)
+				if err != nil && !apierr.IsAlreadyExists(err) {
 					return err
 				} else {
-					log.Debugf("✔ Calico CRD %s created for %s.", o.Name, cl.Name)
+					log.Debugf("✔ CRD %s was created for %s.", o.Name, cl.Name)
 				}
 			}
 		}
 	}
-
-	acceptedK8sTypes = regexp.MustCompile(`(ClusterRole|ClusterRoleBinding|ServiceAccount|ConfigMap|DaemonSet|Deployment)`)
-	fileAsString = df[:]
-	sepYamlfiles = strings.Split(fileAsString, "---")
-	for _, f := range sepYamlfiles {
-		if f == "\n" || f == "" {
-			// ignore empty cases
-			continue
-		}
-
-		decode := scheme.Codecs.UniversalDeserializer().Decode
-		obj, groupVersionKind, err := decode([]byte(f), nil, nil)
-
-		if err != nil {
-			return errors.Wrap(err, "Error while decoding YAML object. Err was: ")
-		}
-
-		if !acceptedK8sTypes.MatchString(groupVersionKind.Kind) {
-			log.Warnf("The file contains K8s object types which are not supported! Skipping object with type: %s", groupVersionKind.Kind)
-		} else {
-			switch o := obj.(type) {
-			case *corev1.ServiceAccount:
-				result, err := clientset.CoreV1().ServiceAccounts(o.Namespace).Create(o)
-				if err != nil && strings.Contains(err.Error(), "already exists") {
-					log.Debugf("✔ %s %s", err.Error(), cl.Name)
-				} else if err != nil {
-					return err
-				} else {
-					log.Debugf("✔ Calico service account %s was created for %s at: %s", o.Name, cl.Name, result.CreationTimestamp)
-				}
-			case *rbacv1.ClusterRole:
-				result, err := clientset.RbacV1().ClusterRoles().Create(o)
-				if err != nil && strings.Contains(err.Error(), "already exists") {
-					log.Debugf("✔ %s %s", err.Error(), cl.Name)
-				} else if err != nil {
-					return err
-				} else {
-					log.Debugf("✔ Calico cluster role %s was created for %s at: %s", o.Name, cl.Name, result.CreationTimestamp)
-				}
-			case *rbacv1.ClusterRoleBinding:
-				result, err := clientset.RbacV1().ClusterRoleBindings().Create(o)
-				if err != nil && strings.Contains(err.Error(), "already exists") {
-					log.Debugf("✔ %s %s", err.Error(), cl.Name)
-				} else if err != nil {
-					return err
-				} else {
-					log.Debugf("✔ Calico cluster role binding %s was created for %s at: %s", o.Name, cl.Name, result.CreationTimestamp)
-				}
-			case *corev1.ConfigMap:
-				result, err := clientset.CoreV1().ConfigMaps(o.Namespace).Create(o)
-				if err != nil && strings.Contains(err.Error(), "already exists") {
-					log.Debugf("✔ %s %s", err.Error(), cl.Name)
-				} else if err != nil {
-					return err
-				} else {
-					log.Debugf("✔ Calico config map was created for %s at: %s", cl.Name, result.CreationTimestamp)
-				}
-			case *appsv1.DaemonSet:
-				_, err := clientset.AppsV1().DaemonSets(o.Namespace).Create(o)
-				if err != nil && strings.Contains(err.Error(), "already exists") {
-					log.Infof("✔ %s %s", err.Error(), cl.Name)
-				} else if err != nil {
-					return err
-				} else {
-					log.Debugf("✔ Calico daemon set was created for %s.", cl.Name)
-				}
-			case *appsv1.Deployment:
-				_, err := clientset.AppsV1().Deployments(o.Namespace).Create(o)
-				if err != nil && strings.Contains(err.Error(), "already exists") {
-					log.Infof("✔ %s %s", err.Error(), cl.Name)
-				} else if err != nil {
-					return err
-				} else {
-					log.Debugf("✔ Calico deployment %s created for %s.", o.Name, cl.Name)
-				}
-			}
-		}
-	}
-	log.Infof("✔ Calico was deployed to %s.", cl.Name)
 	return nil
 }
 
@@ -796,7 +643,7 @@ func CreateEnvironment(i int, flags *flagpole, wg *sync.WaitGroup) error {
 			return errors.Wrapf(err, "%s", cl.Name)
 		}
 
-		err = cl.DeployWeave(weaveDeploymentFile.String(), kubeConfigFilePath)
+		err = cl.DeployResources(weaveDeploymentFile.String(), kubeConfigFilePath, "Weave")
 		if err != nil {
 			return errors.Wrapf(err, "%s", cl.Name)
 		}
@@ -841,7 +688,7 @@ func CreateEnvironment(i int, flags *flagpole, wg *sync.WaitGroup) error {
 			return errors.Wrapf(err, "%s", cl.Name)
 		}
 
-		err = cl.DeployFlannel(flannelDeploymentFile.String(), kubeConfigFilePath)
+		err = cl.DeployResources(flannelDeploymentFile.String(), kubeConfigFilePath, "Flannel")
 		if err != nil {
 			return errors.Wrapf(err, "%s", cl.Name)
 		}
@@ -870,6 +717,16 @@ func CreateEnvironment(i int, flags *flagpole, wg *sync.WaitGroup) error {
 			return errors.Wrapf(err, "%s", cl.Name)
 		}
 
+		calicoCrdFile, err := box.Resolve("tpl/calico-crd.yaml")
+		if err != nil {
+			return errors.Wrapf(err, "%s", cl.Name)
+		}
+
+		err = cl.DeployCrdResources(calicoCrdFile.String(), kubeConfigFilePath)
+		if err != nil {
+			return errors.Wrapf(err, "%s", cl.Name)
+		}
+
 		calicoDeploymentTemplate, err := box.Resolve("tpl/calico-daemonset.yaml")
 		if err != nil {
 			return errors.Wrapf(err, "%s", cl.Name)
@@ -886,12 +743,7 @@ func CreateEnvironment(i int, flags *flagpole, wg *sync.WaitGroup) error {
 			return errors.Wrapf(err, "%s", cl.Name)
 		}
 
-		calicoCrdFile, err := box.Resolve("tpl/calico-crd.yaml")
-		if err != nil {
-			return errors.Wrapf(err, "%s", cl.Name)
-		}
-
-		err = cl.DeployCalico(calicoDeploymentFile.String(), calicoCrdFile.String(), kubeConfigFilePath)
+		err = cl.DeployResources(calicoDeploymentFile.String(), kubeConfigFilePath, "Calico")
 		if err != nil {
 			return errors.Wrapf(err, "%s", cl.Name)
 		}
