@@ -1,12 +1,16 @@
 # Armada
 
+Armada is a tool for creating multiple k8s clusters with [kind] (k8s in docker). This tool relies heavily on [kind] and 
+extends its functionality with automation to create clusters tailored for multi cluster/multi cni local development and testing.
+
 [![Build Status](https://travis-ci.com/dimaunx/armada.svg?branch=master)](https://travis-ci.com/dimaunx/armada)
 
 ## Prerequisites
 
 - [go 1.12] with [$GOPATH configured]
+- [docker]
 
-## Get the latest version from [Releases] page.
+#### Get the latest version from [Releases] page.
 
 
 ## Build the tool locally.
@@ -63,7 +67,7 @@ Default kubernetes node image is kindest/node:v1.15.3. To use different image us
 
 Full list of supported images can be found on [kind release page].
 
-Example of running multiple k8s versions with different cni plugins.
+Example of running four clusters with multiple k8s versions and different cni plugins.
 
 ```bash
 ./armada create clusters -n 2 --weave  # 2 clusters with weave, k8s version 1.15.3
@@ -91,6 +95,8 @@ make docker-run ARGS="./armada destroy clusters"
 
 <!--links-->
 [go 1.12]: https://blog.golang.org/go1.12
+[docker]: https://docs.docker.com/install/
 [$GOPATH configured]: https://github.com/golang/go/wiki/SettingGOPATH
 [Releases]: https://github.com/dimaunx/armada/releases/
 [kind release page]: https://github.com/kubernetes-sigs/kind/releases/tag/v0.5.0
+[kind]: https://github.com/kubernetes-sigs/kind
