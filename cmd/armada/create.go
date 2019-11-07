@@ -289,7 +289,7 @@ func (cl *Cluster) WaitForCoreDnsDeployment(kf string) error {
 	log.Infof("Waiting up to %v for coredns deployment %s...", weaveTimeout, cl.Name)
 	corednsContext, cancel := context.WithTimeout(ctx, weaveTimeout)
 	wait.Until(func() {
-		corednsDeployment, err := clientset.ExtensionsV1beta1().Deployments("kube-system").Get("coredns", metav1.GetOptions{})
+		corednsDeployment, err := clientset.AppsV1().Deployments("kube-system").Get("coredns", metav1.GetOptions{})
 		if err == nil && corednsDeployment.Status.ReadyReplicas > 0 {
 			if corednsDeployment.Status.ReadyReplicas == 2 {
 				log.Infof("✔ Coredns successfully deployed to %s, ready replicas: %v", cl.Name, corednsDeployment.Status.ReadyReplicas)
@@ -309,7 +309,7 @@ func (cl *Cluster) WaitForCoreDnsDeployment(kf string) error {
 }
 
 // Create tiller deployment
-func (cl *Cluster) DeployTiller(df string, kf string) error {
+func (cl *Cluster) WaitForTillerDeployment(kf string) error {
 	config, err := clientcmd.BuildConfigFromFlags("", kf)
 	if err != nil {
 		return err
@@ -320,78 +320,27 @@ func (cl *Cluster) DeployTiller(df string, kf string) error {
 		return err
 	}
 
-	log.Infof("Creating tiller deployment for %s.", cl.Name)
-
-	acceptedK8sTypes := regexp.MustCompile(`(ServiceAccount|ClusterRoleBinding|Deployment)`)
-	fileAsString := df[:]
-	sepYamlfiles := strings.Split(fileAsString, "---")
-	for _, f := range sepYamlfiles {
-		if f == "\n" || f == "" {
-			// ignore empty cases
-			continue
-		}
-
-		decode := scheme.Codecs.UniversalDeserializer().Decode
-		obj, groupVersionKind, err := decode([]byte(f), nil, nil)
-
-		if err != nil {
-			return errors.Wrap(err, "Error while decoding YAML object. Err was: ")
-		}
-
-		if !acceptedK8sTypes.MatchString(groupVersionKind.Kind) {
-			log.Warnf("The file contains K8s object types which are not supported! Skipping object with type: %s", groupVersionKind.Kind)
-		} else {
-			switch o := obj.(type) {
-			case *corev1.ServiceAccount:
-				result, err := clientset.CoreV1().ServiceAccounts("kube-system").Create(o)
-				if err != nil && strings.Contains(err.Error(), "already exists") {
-					log.Debugf("✔ %s %s", err.Error(), cl.Name)
-				} else if err != nil {
-					return err
-				} else {
-					log.Debugf("✔ Tiler service account was created for %s at: %s", cl.Name, result.CreationTimestamp)
-				}
-			case *rbacv1.ClusterRoleBinding:
-				result, err := clientset.RbacV1().ClusterRoleBindings().Create(o)
-				if err != nil && strings.Contains(err.Error(), "already exists") {
-					log.Debugf("✔ %s %s", err.Error(), cl.Name)
-				} else if err != nil {
-					return err
-				} else {
-					log.Debugf("✔ Tiller cluster role binding created for %s at: %s", cl.Name, result.CreationTimestamp)
-				}
-			case *appsv1.Deployment:
-				_, err := clientset.AppsV1().Deployments("kube-system").Create(o)
-				if err != nil && strings.Contains(err.Error(), "already exists") {
-					log.Infof("✔ %s %s", err.Error(), cl.Name)
-				} else if err != nil {
-					return err
-				} else {
-					ctx := context.Background()
-					tillerTimeout := 5 * time.Minute
-					log.Infof("Waiting up to %v for tiller to be created %s...", tillerTimeout, cl.Name)
-					tillerContext, cancel := context.WithTimeout(ctx, tillerTimeout)
-					wait.Until(func() {
-						tillerDeployment, err := clientset.ExtensionsV1beta1().Deployments("kube-system").Get("tiller-deploy", metav1.GetOptions{})
-						if err == nil && tillerDeployment.Status.ReadyReplicas > 0 {
-							if tillerDeployment.Status.ReadyReplicas == 1 {
-								log.Infof("✔ Tiller successfully deployed to %s, ready replicas: %v", cl.Name, tillerDeployment.Status.ReadyReplicas)
-								cancel()
-							} else {
-								log.Warnf("Still waiting for tiller deployment %s, ready replicas: %v", cl.Name, tillerDeployment.Status.ReadyReplicas)
-							}
-						} else {
-							log.Warnf("Still waiting for tiller deployment for %s.", cl.Name)
-						}
-					}, 10*time.Second, tillerContext.Done())
-
-					err = tillerContext.Err()
-					if err != nil && err != context.Canceled {
-						return errors.Wrap(err, "Error waiting for tiller deployment.")
-					}
-				}
+	ctx := context.Background()
+	tillerTimeout := 5 * time.Minute
+	log.Infof("Waiting up to %v for tiller to be created %s...", tillerTimeout, cl.Name)
+	tillerContext, cancel := context.WithTimeout(ctx, tillerTimeout)
+	wait.Until(func() {
+		tillerDeployment, err := clientset.ExtensionsV1beta1().Deployments("kube-system").Get("tiller-deploy", metav1.GetOptions{})
+		if err == nil && tillerDeployment.Status.ReadyReplicas > 0 {
+			if tillerDeployment.Status.ReadyReplicas == 1 {
+				log.Infof("✔ Tiller successfully deployed to %s, ready replicas: %v", cl.Name, tillerDeployment.Status.ReadyReplicas)
+				cancel()
+			} else {
+				log.Warnf("Still waiting for tiller deployment %s, ready replicas: %v", cl.Name, tillerDeployment.Status.ReadyReplicas)
 			}
+		} else {
+			log.Warnf("Still waiting for tiller deployment for %s.", cl.Name)
 		}
+	}, 10*time.Second, tillerContext.Done())
+
+	err = tillerContext.Err()
+	if err != nil && err != context.Canceled {
+		return errors.Wrap(err, "Error waiting for tiller deployment.")
 	}
 	return nil
 }
@@ -776,7 +725,12 @@ func CreateEnvironment(i int, flags *flagpole, wg *sync.WaitGroup) error {
 			return errors.Wrapf(err, "%s", cl.Name)
 		}
 
-		err = cl.DeployTiller(tillerDeploymentFile.String(), kubeConfigFilePath)
+		err = cl.DeployResources(tillerDeploymentFile.String(), kubeConfigFilePath, "Tiller")
+		if err != nil {
+			return errors.Wrapf(err, "%s", cl.Name)
+		}
+
+		err = cl.WaitForTillerDeployment(kubeConfigFilePath)
 		if err != nil {
 			return errors.Wrapf(err, "%s", cl.Name)
 		}
