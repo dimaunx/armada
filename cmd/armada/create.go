@@ -28,6 +28,9 @@ import (
 	extv1beta "k8s.io/api/extensions/v1beta1"
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	apiextv1beta "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	apiextclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	apiextscheme "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/scheme"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -50,6 +53,7 @@ type flagpole struct {
 	Flannel     bool
 	Calico      bool
 	Debug       bool
+	Tiller      bool
 	NumClusters int
 }
 
@@ -422,13 +426,13 @@ func (cl *Cluster) DeployWeave(df string, kf string) error {
 		} else {
 			switch o := obj.(type) {
 			case *corev1.ServiceAccount:
-				result, err := clientset.CoreV1().ServiceAccounts("kube-system").Create(o)
+				result, err := clientset.CoreV1().ServiceAccounts(o.Namespace).Create(o)
 				if err != nil && strings.Contains(err.Error(), "already exists") {
 					log.Debugf("✔ %s %s", err.Error(), cl.Name)
 				} else if err != nil {
 					return err
 				} else {
-					log.Debugf("✔ Weave service account created for %s at: %s", cl.Name, result.CreationTimestamp)
+					log.Debugf("✔ Weave service account %s created for %s at: %s", o.Name, cl.Name, result.CreationTimestamp)
 				}
 			case *rbacv1.ClusterRole:
 				result, err := clientset.RbacV1().ClusterRoles().Create(o)
@@ -437,7 +441,7 @@ func (cl *Cluster) DeployWeave(df string, kf string) error {
 				} else if err != nil {
 					return err
 				} else {
-					log.Debugf("✔ Weave cluster role created for %s at: %s", cl.Name, result.CreationTimestamp)
+					log.Debugf("✔ Weave cluster role %s created for %s at: %s", o.Name, cl.Name, result.CreationTimestamp)
 				}
 			case *rbacv1.ClusterRoleBinding:
 				result, err := clientset.RbacV1().ClusterRoleBindings().Create(o)
@@ -446,38 +450,39 @@ func (cl *Cluster) DeployWeave(df string, kf string) error {
 				} else if err != nil {
 					return err
 				} else {
-					log.Debugf("✔ Weave cluster role binding created for %s at: %s", cl.Name, result.CreationTimestamp)
+					log.Debugf("✔ Weave cluster role binding %s created for %s at: %s", o.Name, cl.Name, result.CreationTimestamp)
 				}
 			case *rbacv1.Role:
-				result, err := clientset.RbacV1().Roles("kube-system").Create(o)
+				result, err := clientset.RbacV1().Roles(o.Namespace).Create(o)
 				if err != nil && strings.Contains(err.Error(), "already exists") {
 					log.Debugf("✔ %s %s", err.Error(), cl.Name)
 				} else if err != nil {
 					return err
 				} else {
-					log.Debugf("✔ Weave role created for %s at: %s", cl.Name, result.CreationTimestamp)
+					log.Debugf("✔ Weave role %s created for %s at: %s", o.Name, cl.Name, result.CreationTimestamp)
 				}
 			case *rbacv1.RoleBinding:
-				result, err := clientset.RbacV1().RoleBindings("kube-system").Create(o)
+				result, err := clientset.RbacV1().RoleBindings(o.Namespace).Create(o)
 				if err != nil && strings.Contains(err.Error(), "already exists") {
 					log.Debugf("✔ %s %s", err.Error(), cl.Name)
 				} else if err != nil {
 					return err
 				} else {
-					log.Debugf("✔ Weave role binding created for %s at: %s", cl.Name, result.CreationTimestamp)
+					log.Debugf("✔ Weave role binding %s created for %s at: %s", o.Name, cl.Name, result.CreationTimestamp)
 				}
 			case *extv1beta.DaemonSet:
-				_, err := clientset.ExtensionsV1beta1().DaemonSets("kube-system").Create(o)
+				_, err := clientset.ExtensionsV1beta1().DaemonSets(o.Namespace).Create(o)
 				if err != nil && strings.Contains(err.Error(), "already exists") {
 					log.Infof("✔ %s %s", err.Error(), cl.Name)
 				} else if err != nil {
 					return err
 				} else {
-					log.Infof("✔ Weave daemon set created for %s.", cl.Name)
+					log.Debugf("✔ Weave daemon set %s created for %s.", o.Name, cl.Name)
 				}
 			}
 		}
 	}
+	log.Infof("✔ Weave was deployed to %s.", cl.Name)
 	return nil
 }
 
@@ -520,16 +525,16 @@ func (cl *Cluster) DeployFlannel(df string, kf string) error {
 				} else if err != nil {
 					return err
 				} else {
-					log.Debugf("✔ Flannel pod security policy was created for %s at: %s", cl.Name, result.CreationTimestamp)
+					log.Debugf("✔ Flannel pod security policy %s was created for %s at: %s", o.Name, cl.Name, result.CreationTimestamp)
 				}
 			case *corev1.ServiceAccount:
-				result, err := clientset.CoreV1().ServiceAccounts("kube-system").Create(o)
+				result, err := clientset.CoreV1().ServiceAccounts(o.Namespace).Create(o)
 				if err != nil && strings.Contains(err.Error(), "already exists") {
 					log.Debugf("✔ %s %s", err.Error(), cl.Name)
 				} else if err != nil {
 					return err
 				} else {
-					log.Debugf("✔ Flannel service account was created for %s at: %s", cl.Name, result.CreationTimestamp)
+					log.Debugf("✔ Flannel service account %s was created for %s at: %s", o.Name, cl.Name, result.CreationTimestamp)
 				}
 			case *rbacv1.ClusterRole:
 				result, err := clientset.RbacV1().ClusterRoles().Create(o)
@@ -538,7 +543,7 @@ func (cl *Cluster) DeployFlannel(df string, kf string) error {
 				} else if err != nil {
 					return err
 				} else {
-					log.Debugf("✔ Flannel cluster role was created for %s at: %s", cl.Name, result.CreationTimestamp)
+					log.Debugf("✔ Flannel cluster role %s was created for %s at: %s", o.Name, cl.Name, result.CreationTimestamp)
 				}
 			case *rbacv1.ClusterRoleBinding:
 				result, err := clientset.RbacV1().ClusterRoleBindings().Create(o)
@@ -547,29 +552,161 @@ func (cl *Cluster) DeployFlannel(df string, kf string) error {
 				} else if err != nil {
 					return err
 				} else {
-					log.Debugf("✔ Flannel cluster role binding was created for %s at: %s", cl.Name, result.CreationTimestamp)
+					log.Debugf("✔ Flannel cluster role binding %s was created for %s at: %s", o.Name, cl.Name, result.CreationTimestamp)
 				}
 			case *corev1.ConfigMap:
-				result, err := clientset.CoreV1().ConfigMaps("kube-system").Create(o)
+				result, err := clientset.CoreV1().ConfigMaps(o.Namespace).Create(o)
 				if err != nil && strings.Contains(err.Error(), "already exists") {
 					log.Debugf("✔ %s %s", err.Error(), cl.Name)
 				} else if err != nil {
 					return err
 				} else {
-					log.Debugf("✔ Flannel config map was created for %s at: %s", cl.Name, result.CreationTimestamp)
+					log.Debugf("✔ Flannel config map %s was created for %s at: %s", o.Name, cl.Name, result.CreationTimestamp)
 				}
 			case *appsv1.DaemonSet:
-				_, err := clientset.AppsV1().DaemonSets("kube-system").Create(o)
+				_, err := clientset.AppsV1().DaemonSets(o.Namespace).Create(o)
 				if err != nil && strings.Contains(err.Error(), "already exists") {
 					log.Infof("✔ %s %s", err.Error(), cl.Name)
 				} else if err != nil {
 					return err
 				} else {
-					log.Infof("✔ Flannel daemon set was created for %s.", cl.Name)
+					log.Debugf("✔ Flannel daemon set %s was created for %s.", o.Name, cl.Name)
 				}
 			}
 		}
 	}
+	log.Infof("✔ Flannel was deployed to %s.", cl.Name)
+	return nil
+}
+
+// Deploy calico
+func (cl *Cluster) DeployCalico(df string, cf string, kf string) error {
+	config, err := clientcmd.BuildConfigFromFlags("", kf)
+	if err != nil {
+		return err
+	}
+
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	extclientset, err := apiextclientset.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	acceptedK8sTypes := regexp.MustCompile(`(CustomResourceDefinition)`)
+	fileAsString := cf[:]
+	sepYamlfiles := strings.Split(fileAsString, "---")
+	for _, f := range sepYamlfiles {
+		if f == "\n" || f == "" {
+			// ignore empty cases
+			continue
+		}
+
+		decode := apiextscheme.Codecs.UniversalDeserializer().Decode
+		obj, groupVersionKind, err := decode([]byte(f), nil, nil)
+
+		if err != nil {
+			return errors.Wrap(err, "Error while decoding YAML object. Err was: ")
+		}
+
+		if !acceptedK8sTypes.MatchString(groupVersionKind.Kind) {
+			log.Warnf("The file contains K8s object types which are not supported! Skipping object with type: %s", groupVersionKind.Kind)
+		} else {
+			switch o := obj.(type) {
+			case *apiextv1beta.CustomResourceDefinition:
+				_, err := extclientset.ApiextensionsV1beta1().CustomResourceDefinitions().Create(o)
+				if err != nil && strings.Contains(err.Error(), "already exists") {
+					log.Infof("✔ %s %s", err.Error(), cl.Name)
+				} else if err != nil {
+					return err
+				} else {
+					log.Debugf("✔ Calico CRD %s created for %s.", o.Name, cl.Name)
+				}
+			}
+		}
+	}
+
+	acceptedK8sTypes = regexp.MustCompile(`(ClusterRole|ClusterRoleBinding|ServiceAccount|ConfigMap|DaemonSet|Deployment)`)
+	fileAsString = df[:]
+	sepYamlfiles = strings.Split(fileAsString, "---")
+	for _, f := range sepYamlfiles {
+		if f == "\n" || f == "" {
+			// ignore empty cases
+			continue
+		}
+
+		decode := scheme.Codecs.UniversalDeserializer().Decode
+		obj, groupVersionKind, err := decode([]byte(f), nil, nil)
+
+		if err != nil {
+			return errors.Wrap(err, "Error while decoding YAML object. Err was: ")
+		}
+
+		if !acceptedK8sTypes.MatchString(groupVersionKind.Kind) {
+			log.Warnf("The file contains K8s object types which are not supported! Skipping object with type: %s", groupVersionKind.Kind)
+		} else {
+			switch o := obj.(type) {
+			case *corev1.ServiceAccount:
+				result, err := clientset.CoreV1().ServiceAccounts(o.Namespace).Create(o)
+				if err != nil && strings.Contains(err.Error(), "already exists") {
+					log.Debugf("✔ %s %s", err.Error(), cl.Name)
+				} else if err != nil {
+					return err
+				} else {
+					log.Debugf("✔ Calico service account %s was created for %s at: %s", o.Name, cl.Name, result.CreationTimestamp)
+				}
+			case *rbacv1.ClusterRole:
+				result, err := clientset.RbacV1().ClusterRoles().Create(o)
+				if err != nil && strings.Contains(err.Error(), "already exists") {
+					log.Debugf("✔ %s %s", err.Error(), cl.Name)
+				} else if err != nil {
+					return err
+				} else {
+					log.Debugf("✔ Calico cluster role %s was created for %s at: %s", o.Name, cl.Name, result.CreationTimestamp)
+				}
+			case *rbacv1.ClusterRoleBinding:
+				result, err := clientset.RbacV1().ClusterRoleBindings().Create(o)
+				if err != nil && strings.Contains(err.Error(), "already exists") {
+					log.Debugf("✔ %s %s", err.Error(), cl.Name)
+				} else if err != nil {
+					return err
+				} else {
+					log.Debugf("✔ Calico cluster role binding %s was created for %s at: %s", o.Name, cl.Name, result.CreationTimestamp)
+				}
+			case *corev1.ConfigMap:
+				result, err := clientset.CoreV1().ConfigMaps(o.Namespace).Create(o)
+				if err != nil && strings.Contains(err.Error(), "already exists") {
+					log.Debugf("✔ %s %s", err.Error(), cl.Name)
+				} else if err != nil {
+					return err
+				} else {
+					log.Debugf("✔ Calico config map was created for %s at: %s", cl.Name, result.CreationTimestamp)
+				}
+			case *appsv1.DaemonSet:
+				_, err := clientset.AppsV1().DaemonSets(o.Namespace).Create(o)
+				if err != nil && strings.Contains(err.Error(), "already exists") {
+					log.Infof("✔ %s %s", err.Error(), cl.Name)
+				} else if err != nil {
+					return err
+				} else {
+					log.Debugf("✔ Calico daemon set was created for %s.", cl.Name)
+				}
+			case *appsv1.Deployment:
+				_, err := clientset.AppsV1().Deployments(o.Namespace).Create(o)
+				if err != nil && strings.Contains(err.Error(), "already exists") {
+					log.Infof("✔ %s %s", err.Error(), cl.Name)
+				} else if err != nil {
+					return err
+				} else {
+					log.Debugf("✔ Calico deployment %s created for %s.", o.Name, cl.Name)
+				}
+			}
+		}
+	}
+	log.Infof("✔ Calico was deployed to %s.", cl.Name)
 	return nil
 }
 
@@ -713,8 +850,58 @@ func CreateEnvironment(i int, flags *flagpole, wg *sync.WaitGroup) error {
 		if err != nil {
 			return errors.Wrapf(err, "%s", cl.Name)
 		}
-	} else {
 
+	} else if flags.Calico {
+		cl.DefaultCni = false
+		flags.Wait = 0
+
+		err = cl.GenerateConfig(kindConfigFilePath, clusterConfigTemplate.String())
+		if err != nil {
+			return errors.Wrapf(err, "%s", cl.Name)
+		}
+
+		err = cl.CreateCluster(flags, kindConfigFilePath)
+		if err != nil {
+			return errors.Wrapf(err, "%s", cl.Name)
+		}
+
+		err = cl.PrepareKubeConfig()
+		if err != nil {
+			return errors.Wrapf(err, "%s", cl.Name)
+		}
+
+		calicoDeploymentTemplate, err := box.Resolve("tpl/calico-daemonset.yaml")
+		if err != nil {
+			return errors.Wrapf(err, "%s", cl.Name)
+		}
+
+		t, err := template.New("flannel").Parse(calicoDeploymentTemplate.String())
+		if err != nil {
+			return errors.Wrapf(err, "%s", cl.Name)
+		}
+
+		var calicoDeploymentFile bytes.Buffer
+		err = t.Execute(&calicoDeploymentFile, cl)
+		if err != nil {
+			return errors.Wrapf(err, "%s", cl.Name)
+		}
+
+		calicoCrdFile, err := box.Resolve("tpl/calico-crd.yaml")
+		if err != nil {
+			return errors.Wrapf(err, "%s", cl.Name)
+		}
+
+		err = cl.DeployCalico(calicoDeploymentFile.String(), calicoCrdFile.String(), kubeConfigFilePath)
+		if err != nil {
+			return errors.Wrapf(err, "%s", cl.Name)
+		}
+
+		err = cl.WaitForCoreDnsDeployment(kubeConfigFilePath)
+		if err != nil {
+			return errors.Wrapf(err, "%s", cl.Name)
+		}
+
+	} else {
 		err = cl.GenerateConfig(kindConfigFilePath, clusterConfigTemplate.String())
 		if err != nil {
 			return errors.Wrapf(err, "%s", cl.Name)
@@ -731,14 +918,16 @@ func CreateEnvironment(i int, flags *flagpole, wg *sync.WaitGroup) error {
 		}
 	}
 
-	tillerDeploymentFile, err := box.Resolve("helm/tiller-deployment.yaml")
-	if err != nil {
-		return errors.Wrapf(err, "%s", cl.Name)
-	}
+	if flags.Tiller {
+		tillerDeploymentFile, err := box.Resolve("helm/tiller-deployment.yaml")
+		if err != nil {
+			return errors.Wrapf(err, "%s", cl.Name)
+		}
 
-	err = cl.DeployTiller(tillerDeploymentFile.String(), kubeConfigFilePath)
-	if err != nil {
-		return errors.Wrapf(err, "%s", cl.Name)
+		err = cl.DeployTiller(tillerDeploymentFile.String(), kubeConfigFilePath)
+		if err != nil {
+			return errors.Wrapf(err, "%s", cl.Name)
+		}
 	}
 	wg.Done()
 	return nil
@@ -824,9 +1013,10 @@ func CreateClustersCommand() *cobra.Command {
 	}
 	cmd.Flags().StringVarP(&flags.ImageName, "image", "i", "", "node docker image to use for booting the cluster")
 	cmd.Flags().BoolVarP(&flags.Retain, "retain", "", true, "retain nodes for debugging when cluster creation fails")
-	cmd.Flags().BoolVarP(&flags.Weave, "weave", "w", false, "install weave")
-	cmd.Flags().BoolVarP(&flags.Calico, "calico", "c", false, "install calico")
-	cmd.Flags().BoolVarP(&flags.Flannel, "flannel", "f", false, "install flannel")
+	cmd.Flags().BoolVarP(&flags.Weave, "weave", "w", false, "deploy weave")
+	cmd.Flags().BoolVarP(&flags.Tiller, "tiller", "t", false, "deploy tiller")
+	cmd.Flags().BoolVarP(&flags.Calico, "calico", "c", false, "deploy calico")
+	cmd.Flags().BoolVarP(&flags.Flannel, "flannel", "f", false, "deploy flannel")
 	cmd.Flags().BoolVarP(&flags.Debug, "debug", "v", false, "set log level to debug")
 	cmd.Flags().DurationVar(&flags.Wait, "wait", 5*time.Minute, "amount of minutes to wait for control plane nodes to be ready")
 	cmd.Flags().IntVarP(&flags.NumClusters, "num", "n", 2, "number of clusters to create")

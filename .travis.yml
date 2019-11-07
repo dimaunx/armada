@@ -13,13 +13,13 @@ jobs:
     - stage: "Test"
       script: |
         make build && cd ./bin && \
-        ./armada create clusters -n 1 && \
+        ./armada create clusters -n 1 --calico && \
         ./armada create clusters -n 2 --image kindest/node:v1.14.6 --weave && \
         ./armada create clusters -n 3 --flannel
       name: "local test"
     - script: |
         make docker-build && \
-        make docker-run ARGS="./armada create clusters -n 1" && \
+        make docker-run ARGS="./armada create clusters -n 1 --calico" && \
         make docker-run ARGS="./armada create clusters -n 2 --image kindest/node:v1.14.6 --weave" && \
         make docker-run ARGS="./armada create clusters -n 3 --flannel"
       name: "docker test"

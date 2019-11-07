@@ -1,4 +1,4 @@
-VERSION := -$(shell git describe --tags | tr -d "v")
+VERSION := $(shell git describe --tags | tr -d "v")
 BUILD := $(shell git rev-parse HEAD)
 USER := $(shell id -u)
 PROJECTNAME := $(shell basename "$(PWD)")
