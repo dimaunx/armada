@@ -27,6 +27,7 @@ func NewRootCmd() *cobra.Command {
 	// add all top level subcommands
 	cmd.AddCommand(CreateCmd())
 	cmd.AddCommand(DestroyCmd())
+	cmd.AddCommand(DeployCmd())
 	cmd.AddCommand(VersionCmd())
 	return cmd
 }
