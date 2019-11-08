@@ -15,10 +15,12 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/gobuffalo/packr/v2"
+
+	"github.com/Masterminds/semver"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
 	dockerclient "github.com/docker/docker/client"
-	"github.com/gobuffalo/packr/v2"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -529,13 +531,19 @@ func CreateEnvironment(i int, flags *flagpole, wg *sync.WaitGroup) error {
 		KubeAdminApiVersion: "",
 	}
 
-	// TODO convert image k8s version to float
 	if flags.ImageName != "" {
-		if !strings.Contains("1.15", flags.ImageName) {
-			cl.KubeAdminApiVersion = "kubeadm.k8s.io/v1beta1"
+		tgt := semver.MustParse("1.15")
+		results := strings.Split(flags.ImageName, ":v")
+		if len(results) >= 2 {
+			sver := semver.MustParse(results[len(results)-1])
+			if sver.LessThan(tgt) {
+				cl.KubeAdminApiVersion = "kubeadm.k8s.io/v1beta1"
+			} else if sver.GreaterThan(tgt) {
+				cl.KubeAdminApiVersion = "kubeadm.k8s.io/v1beta2"
+			}
+		} else {
+			return errors.Errorf("%q: Could not extract version from %s, split is by ':v', example of correct image name: kindest/node:v1.14.6.", cl.Name, flags.ImageName)
 		}
-	} else {
-		cl.KubeAdminApiVersion = "kubeadm.k8s.io/v1beta2"
 	}
 
 	configDir := filepath.Join(currentDir, "output/kind-clusters")
