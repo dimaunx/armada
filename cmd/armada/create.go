@@ -359,7 +359,7 @@ func (cl *Cluster) DeployResources(df string, kf string, rn string) error {
 		return err
 	}
 
-	acceptedK8sTypes := regexp.MustCompile(`(Role|RoleBinding|ClusterRole|ClusterRoleBinding|ServiceAccount|ConfigMap|DaemonSet|Deployment)`)
+	acceptedK8sTypes := regexp.MustCompile(`(Role|RoleBinding|ClusterRole|ClusterRoleBinding|ServiceAccount|ConfigMap|DaemonSet|Deployment|Service|Pod)`)
 	fileAsString := df[:]
 	sepYamlfiles := strings.Split(fileAsString, "---")
 	for _, f := range sepYamlfiles {
@@ -420,6 +420,20 @@ func (cl *Cluster) DeployResources(df string, kf string, rn string) error {
 					return err
 				} else {
 					log.Debugf("✔ ConfigMap %s was created for %s at: %s", o.Name, cl.Name, result.CreationTimestamp)
+				}
+			case *corev1.Service:
+				result, err := clientSet.CoreV1().Services(o.Namespace).Create(o)
+				if err != nil && !apierr.IsAlreadyExists(err) {
+					return err
+				} else {
+					log.Debugf("✔ Service %s was created for %s at: %s", o.Name, cl.Name, result.CreationTimestamp)
+				}
+			case *corev1.Pod:
+				result, err := clientSet.CoreV1().Pods(o.Namespace).Create(o)
+				if err != nil && !apierr.IsAlreadyExists(err) {
+					return err
+				} else {
+					log.Debugf("✔ Pod %s was created for %s at: %s", o.Name, cl.Name, result.CreationTimestamp)
 				}
 			case *policyv1beta1.PodSecurityPolicy:
 				result, err := clientSet.PolicyV1beta1().PodSecurityPolicies().Create(o)
@@ -528,7 +542,7 @@ func CreateEnvironment(i int, flags *flagpole, wg *sync.WaitGroup) error {
 		PodSubnet:           podIp.String() + "/14",
 		ServiceSubnet:       serviceIp.String() + "/16",
 		DNSDomain:           "cl" + strconv.Itoa(i) + ".local",
-		KubeAdminApiVersion: "",
+		KubeAdminApiVersion: "kubeadm.k8s.io/v1beta2",
 	}
 
 	if flags.ImageName != "" {
@@ -538,8 +552,6 @@ func CreateEnvironment(i int, flags *flagpole, wg *sync.WaitGroup) error {
 			sver := semver.MustParse(results[len(results)-1])
 			if sver.LessThan(tgt) {
 				cl.KubeAdminApiVersion = "kubeadm.k8s.io/v1beta1"
-			} else if sver.GreaterThan(tgt) {
-				cl.KubeAdminApiVersion = "kubeadm.k8s.io/v1beta2"
 			}
 		} else {
 			return errors.Errorf("%q: Could not extract version from %s, split is by ':v', example of correct image name: kindest/node:v1.14.6.", cl.Name, flags.ImageName)
@@ -754,6 +766,12 @@ func CreateCmd() *cobra.Command {
 		Short: "Creates e2e environment",
 		Long:  "Creates multiple kind clusters",
 	}
+
+	customFormatter := new(log.TextFormatter)
+	customFormatter.TimestampFormat = "2006-01-02 15:04:05"
+	log.SetFormatter(customFormatter)
+	customFormatter.FullTimestamp = true
+
 	cmd.AddCommand(CreateClustersCommand())
 	return cmd
 }
@@ -766,11 +784,6 @@ func CreateClustersCommand() *cobra.Command {
 		Short: "Creates multiple kubernetes clusters",
 		Long:  "Creates multiple kubernetes clusters using Docker container 'nodes'",
 		RunE: func(cmd *cobra.Command, args []string) error {
-
-			customFormatter := new(log.TextFormatter)
-			customFormatter.TimestampFormat = "2006-01-02 15:04:05"
-			log.SetFormatter(customFormatter)
-			customFormatter.FullTimestamp = true
 
 			if flags.Debug {
 				log.SetLevel(log.DebugLevel)

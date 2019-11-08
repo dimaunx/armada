@@ -3,6 +3,7 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: netshoot
+  namespace: default
 spec:
   selector:
     matchLabels:
