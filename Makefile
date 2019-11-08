@@ -23,7 +23,7 @@ GOIMPORTS := $(GOBIN)/goimports
 LDFLAGS=-ldflags "-X github.com/dimaunx/armada/cmd/armada.Version=$(VERSION) -X github.com/dimaunx/armada/cmd/armada.Build=$(BUILD)"
 
 $(GOLANGCILINT):
-	curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(shell go env GOPATH)/bin v1.17.0
+	curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(GOBIN) v1.17.0
 
 $(PACKR):
 	curl -sL https://github.com/gobuffalo/packr/releases/download/v2.7.1/packr_2.7.1_$(OS)_amd64.tar.gz | tar xzvf - packr2
@@ -31,7 +31,7 @@ $(PACKR):
 	chmod a+x $(GOBIN)/packr2
 
 $(GOIMPORTS):
-	$(GOCMD) get golang.org/x/tools/cmd/goimports
+	GO111MODULE=off $(GOCMD) get -u golang.org/x/tools/cmd/goimports
 
 validate: $(GOLANGCILINT) $(GOIMPORTS)
 	find . -name '*.go' -not -wholename './vendor/*' | while read -r file; do goimports -w -d "$$file"; done
@@ -39,8 +39,8 @@ validate: $(GOLANGCILINT) $(GOIMPORTS)
 .PHONY: validate
 
 build: $(PACKR) validate
+	$(GOCMD) mod tidy
 	packr2 -v --ignore-imports
-	$(GOCMD) mod vendor
 	CGO_ENABLED=0 $(GOCMD) build $(LDFLAGS) -o $(GOBASE)/$(OUTPUTDIR)/$(PROJECTNAME)
 .PHONY: build
 
