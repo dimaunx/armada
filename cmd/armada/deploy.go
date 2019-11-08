@@ -1,11 +1,12 @@
 package armada
 
 import (
+	"io/ioutil"
+	"strings"
+
 	"github.com/gobuffalo/packr/v2"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"io/ioutil"
-	"strings"
 )
 
 type deployFlagpole struct {
