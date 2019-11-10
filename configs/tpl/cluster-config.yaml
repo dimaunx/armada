@@ -6,7 +6,7 @@ networking:
 {{- end}}
 kubeadmConfigPatches:
   - |
-    apiVersion: {{.KubeAdminApiVersion}}
+    apiVersion: {{.KubeAdminAPIVersion}}
     kind: ClusterConfiguration
     metadata:
       name: config
