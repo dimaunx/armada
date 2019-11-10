@@ -1,5 +1,7 @@
 package constants
 
+import "time"
+
 // Constant default values
 const (
 	ClusterNameBase        = "cl"
@@ -11,4 +13,5 @@ const (
 	KindConfigDir          = "output/kind-clusters"
 	LocalKubeConfigDir     = "output/kind-config/local-dev"
 	ContainerKubeConfigDir = "output/kind-config/container"
+	WaitDurationResources  = time.Duration(5) * time.Minute
 )
