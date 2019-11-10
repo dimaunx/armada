@@ -5,7 +5,6 @@ extends its functionality with automation to create clusters tailored for multi 
 
 [![Build Status](https://travis-ci.com/dimaunx/armada.svg?branch=master)](https://travis-ci.com/dimaunx/armada)
 [![Go Report Card](https://goreportcard.com/badge/github.com/dimaunx/armada)](https://goreportcard.com/report/github.com/dimaunx/armada)
-[![GitHub release](https://img.shields.io/github/release/dimaunx/aramada.svg)](https://GitHub.com/dimaunx/armada/releases/)
 
 ## Prerequisites
 
