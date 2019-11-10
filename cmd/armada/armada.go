@@ -7,10 +7,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Flags loglevel
 type Flags struct {
 	LogLevel string
 }
 
+// Build and Version
 var (
 	Build   string
 	Version string
@@ -32,6 +34,7 @@ func NewRootCmd() *cobra.Command {
 	return cmd
 }
 
+// VersionCmd returns a new cobra.Command that displays version and build information
 func VersionCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Args:  cobra.NoArgs,
@@ -45,7 +48,7 @@ func VersionCmd() *cobra.Command {
 	return cmd
 }
 
-// Run runs the `kind` root command
+// Run runs the `armada` root command
 func Run() error {
 	return NewRootCmd().Execute()
 }
