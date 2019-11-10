@@ -4,6 +4,8 @@ Armada is a tool for creating multiple k8s clusters with [kind] (k8s in docker).
 extends its functionality with automation to create clusters tailored for multi cluster/multi cni local development and testing.
 
 [![Build Status](https://travis-ci.com/dimaunx/armada.svg?branch=master)](https://travis-ci.com/dimaunx/armada)
+[![Go Report Card](https://goreportcard.com/badge/github.com/dimaunx/armada)](https://goreportcard.com/report/github.com/dimaunx/armada)
+[![Release](https://img.shields.io/github/v/release/dimaunx/armada.svg)](https://img.shields.io/github/v/release/dimaunx/armada.svg)
 
 ## Prerequisites
 

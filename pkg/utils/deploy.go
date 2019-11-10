@@ -151,7 +151,7 @@ func DeployResources(cl *cluster.Cluster, deploymentFile, kubeconfigFilePath, re
 	return nil
 }
 
-// DeployCrdResources deployed k8s CRD resources
+// DeployCrdResources deploys k8s CRD resources
 func DeployCrdResources(cl *cluster.Cluster, deploymentFile, kubeconfigFilePath string) error {
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfigFilePath)
 	if err != nil {

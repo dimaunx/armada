@@ -2,7 +2,7 @@ package constants
 
 import "time"
 
-// Constant default values
+// Default values
 const (
 	ClusterNameBase        = "cl"
 	PodCidrBase            = "10.0.0.0"

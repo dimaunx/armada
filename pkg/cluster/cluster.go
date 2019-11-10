@@ -60,7 +60,7 @@ func CreateKindCluster(cl *Cluster, flags Flagpole, clusterConfigFile string) er
 	return nil
 }
 
-// DeleteKindCluster delete a kind cluster
+// DeleteKindCluster deletes a kind cluster
 func DeleteKindCluster(cl *Cluster, clusterConfigFile os.FileInfo) error {
 	log.Infof("Deleting cluster %q ...\n", cl.Name)
 	ctx := cluster.NewContext(cl.Name)

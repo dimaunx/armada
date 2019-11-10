@@ -219,7 +219,7 @@ func GenerateConfig(cl *cluster.Cluster, clusterConfigFile, configTemplate strin
 	return nil
 }
 
-// CreateEnvironment create custom environment
+// CreateEnvironment creates custom environment
 func CreateEnvironment(i int, flags *cluster.Flagpole, wg *sync.WaitGroup) error {
 	currentDir, err := os.Getwd()
 	if err != nil {
