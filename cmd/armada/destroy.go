@@ -2,16 +2,16 @@ package armada
 
 import (
 	"io/ioutil"
-	"os"
-	"path/filepath"
 	"strings"
 
-	"github.com/pkg/errors"
+	"github.com/dimaunx/armada/pkg/cluster"
+	"github.com/dimaunx/armada/pkg/constants"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"sigs.k8s.io/kind/pkg/cluster"
 )
 
+// DestroyCmd returns a new cobra.Command under root command for armada
 func DestroyCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Args:  cobra.NoArgs,
@@ -23,6 +23,7 @@ func DestroyCmd() *cobra.Command {
 	return cmd
 }
 
+// DestroyClustersCommand returns a new cobra.Command under destroy command for armada
 func DestroyClustersCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Args:  cobra.NoArgs,
@@ -36,34 +37,21 @@ func DestroyClustersCommand() *cobra.Command {
 			log.SetFormatter(customFormatter)
 			customFormatter.FullTimestamp = true
 
-			configFiles, err := ioutil.ReadDir(KindConfigDir)
+			configFiles, err := ioutil.ReadDir(constants.KindConfigDir)
 			if err != nil {
 				log.Fatal(err)
 			}
 
 			for _, file := range configFiles {
 				clName := strings.Split(file.Name(), "-")[0]
-				cl := &Cluster{Name: clName}
-				err := deleteCluster(cl)
+				cl := &cluster.Cluster{Name: clName}
+				err := cluster.DeleteKindCluster(cl, file)
 				if err != nil {
 					log.Error(err)
 				}
-
-				_ = os.Remove(filepath.Join(KindConfigDir, file.Name()))
-				_ = os.Remove(filepath.Join(LocalKubeConfigDir, "kind-config-"+clName))
-				_ = os.Remove(filepath.Join(ContainerKubeConfigDir, "kind-config-"+clName))
 			}
 			return nil
 		},
 	}
 	return cmd
-}
-
-func deleteCluster(cl *Cluster) error {
-	log.Infof("Deleting cluster %q ...\n", cl.Name)
-	ctx := cluster.NewContext(cl.Name)
-	if err := ctx.Delete(); err != nil {
-		return errors.Wrapf(err, "failed to delete cluster %s", cl.Name)
-	}
-	return nil
 }
