@@ -126,7 +126,7 @@ func DeployNginxDemoCommand() *cobra.Command {
 					log.Fatal(err)
 				}
 
-				err = utils.WaitForDeployment(cl, kubeConfigFilePath, "default", "nginx-demo")
+				err = utils.WaitForDaemonSet(cl, kubeConfigFilePath, "default", "nginx-demo")
 				if err != nil {
 					log.Fatal(err)
 				}
