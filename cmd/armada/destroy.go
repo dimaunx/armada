@@ -5,8 +5,7 @@ import (
 	"strings"
 
 	"github.com/dimaunx/armada/pkg/cluster"
-	"github.com/dimaunx/armada/pkg/constants"
-
+	"github.com/dimaunx/armada/pkg/config"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -37,15 +36,15 @@ func DestroyClustersCommand() *cobra.Command {
 			log.SetFormatter(customFormatter)
 			customFormatter.FullTimestamp = true
 
-			configFiles, err := ioutil.ReadDir(constants.KindConfigDir)
+			configFiles, err := ioutil.ReadDir(config.KindConfigDir)
 			if err != nil {
 				log.Fatal(err)
 			}
 
 			for _, file := range configFiles {
 				clName := strings.Split(file.Name(), "-")[0]
-				cl := &cluster.Cluster{Name: clName}
-				err := cluster.DeleteKindCluster(cl, file)
+				cl := &config.Cluster{Name: clName}
+				err := cluster.Delete(cl, file)
 				if err != nil {
 					log.Error(err)
 				}

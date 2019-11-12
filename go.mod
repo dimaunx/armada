@@ -8,6 +8,7 @@ require (
 	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/docker v1.13.1
 	github.com/docker/go-connections v0.4.0 // indirect
+	github.com/gernest/wow v0.1.0
 	github.com/gobuffalo/packr/v2 v2.7.1
 	github.com/imdario/mergo v0.3.8 // indirect
 	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
