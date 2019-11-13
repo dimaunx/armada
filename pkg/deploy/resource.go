@@ -23,8 +23,8 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-// DeployResources deploys k8s resources
-func DeployResources(cl *config.Cluster, c kubernetes.Interface, deploymentFile string, resourceName string) error {
+// Resources deploys k8s resources
+func Resources(cl *config.Cluster, c kubernetes.Interface, deploymentFile string, resourceName string) error {
 	acceptedK8sTypes := regexp.MustCompile(`(Role|RoleBinding|ClusterRole|ClusterRoleBinding|ServiceAccount|ConfigMap|DaemonSet|Deployment|Service|Pod)`)
 	fileAsString := deploymentFile[:]
 	sepYamlfiles := strings.Split(fileAsString, "---")
@@ -143,8 +143,8 @@ func DeployResources(cl *config.Cluster, c kubernetes.Interface, deploymentFile 
 	return nil
 }
 
-// DeployCrdResources deploys k8s CRD resources
-func DeployCrdResources(cl *config.Cluster, c apiextclientset.Interface, deploymentFile string) error {
+// CrdResources deploys k8s CRD resources
+func CrdResources(cl *config.Cluster, c apiextclientset.Interface, deploymentFile string) error {
 	acceptedK8sTypes := regexp.MustCompile(`(CustomResourceDefinition)`)
 	fileAsString := deploymentFile[:]
 	sepYamlfiles := strings.Split(fileAsString, "---")
@@ -195,7 +195,7 @@ func Tiller(cl *config.Cluster, kubeConfigFilePath string, box *packr.Box) error
 		return err
 	}
 
-	err = DeployResources(cl, clientSet, tillerDeploymentFile.String(), "Tiller")
+	err = Resources(cl, clientSet, tillerDeploymentFile.String(), "Tiller")
 	if err != nil {
 		return err
 	}

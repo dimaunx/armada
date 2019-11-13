@@ -201,7 +201,7 @@ func GenerateKindConfig(cl *config.Cluster, configDir string, box *packr.Box) (s
 		return "", err
 	}
 
-	kindConfigFilePath := filepath.Join(configDir, cl.Name+"-kind-config.yaml")
+	kindConfigFilePath := filepath.Join(configDir, "kind-config-"+cl.Name+".yaml")
 	f, err := os.Create(kindConfigFilePath)
 	if err != nil {
 		return "", err

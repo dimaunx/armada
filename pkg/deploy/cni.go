@@ -36,7 +36,7 @@ func Calico(cl *config.Cluster, kubeConfigFilePath string, box *packr.Box) error
 		return err
 	}
 
-	err = DeployCrdResources(cl, apiExtClientSet, calicoCrdFile.String())
+	err = CrdResources(cl, apiExtClientSet, calicoCrdFile.String())
 	if err != nil {
 		return err
 	}
@@ -57,7 +57,7 @@ func Calico(cl *config.Cluster, kubeConfigFilePath string, box *packr.Box) error
 		return err
 	}
 
-	err = DeployResources(cl, clientSet, calicoDeploymentFile.String(), "Calico")
+	err = Resources(cl, clientSet, calicoDeploymentFile.String(), "Calico")
 	if err != nil {
 		return err
 	}
@@ -102,7 +102,7 @@ func Weave(cl *config.Cluster, kubeConfigFilePath string, box *packr.Box) error 
 		return err
 	}
 
-	err = DeployResources(cl, clientSet, weaveDeploymentFile.String(), "Weave")
+	err = Resources(cl, clientSet, weaveDeploymentFile.String(), "Weave")
 	if err != nil {
 		return err
 	}
@@ -147,7 +147,7 @@ func Flannel(cl *config.Cluster, kubeConfigFilePath string, box *packr.Box) erro
 		return err
 	}
 
-	err = DeployResources(cl, clientSet, flannelDeploymentFile.String(), "Flannel")
+	err = Resources(cl, clientSet, flannelDeploymentFile.String(), "Flannel")
 	if err != nil {
 		return err
 	}

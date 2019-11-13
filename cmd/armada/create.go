@@ -75,7 +75,7 @@ func CreateClustersCommand() *cobra.Command {
 					err := cluster.Create(cl, flags, box, &wg)
 					if err != nil {
 						defer wg.Done()
-						log.Fatalf("%s: %v", cl.Name, err)
+						log.Fatalf("%s: %s", cl.Name, err)
 					}
 				}(cl)
 			}
@@ -87,7 +87,7 @@ func CreateClustersCommand() *cobra.Command {
 					err := cluster.FinalizeSetup(cl, flags, box, &wg)
 					if err != nil {
 						defer wg.Done()
-						log.Fatalf("%s: %v", cl.Name, err)
+						log.Fatalf("%s: %s", cl.Name, err)
 					}
 				}(cl)
 			}
@@ -101,7 +101,7 @@ func CreateClustersCommand() *cobra.Command {
 			}
 
 			for _, file := range files {
-				clName := strings.Split(file.Name(), "-")[0]
+				clName := strings.FieldsFunc(file.Name(), func(r rune) bool { return strings.ContainsRune(" -.", r) })[2]
 				known, err := kind.IsKnown(clName)
 				if err != nil {
 					log.Error(err)
