@@ -55,7 +55,7 @@ This command will create five clusters with default kindnet cni.
 Create a total of four clusters, 2 with weave, one with flannel and one with calico.
 
 ```bash
-./armada create clusters -n 2 --weave
+./armada create clusters --weave
 ./armada create clusters -n 3 --flannel
 ./armada create clusters -n 4 --calico
 ```
@@ -82,13 +82,43 @@ Alternatively run in docker after running **make docker-build** or **make build*
 make docker-run ARGS="./armada create clusters -n 4 --calico"
 ``` 
 
+Create clusters command full usage.
+
+```bash
+./armada create clusters -h
+Creates multiple kubernetes clusters using Docker container 'nodes'
+
+Usage:
+  armada create clusters [flags]
+
+Flags:
+  -c, --calico          deploy with calico
+  -v, --debug           set log level to debug
+  -f, --flannel         deploy with flannel
+  -h, --help            help for clusters
+  -i, --image string    node docker image to use for booting the cluster
+  -n, --num int         number of clusters to create (default 2)
+  -o, --overlap         create clusters with overlapping cidrs
+      --retain          retain nodes for debugging when cluster creation fails (default true)
+  -t, --tiller          deploy with tiller
+      --wait duration   amount of minutes to wait for control plane nodes to be ready (default 5m0s)
+  -w, --weave           deploy with weave
+```
+
 ## Destroy clusters
 
+Destroy all clusters
 ```bash
 ./armada destroy clusters
 ``` 
 
-Destroy clusters from docker.
+Destroy specific clusters
+
+```bash
+./armada destroy clusters --cluster cl1,cl3
+```
+
+Destroy all clusters from docker.
 
 ```bash
 make docker-run ARGS="./armada destroy clusters"

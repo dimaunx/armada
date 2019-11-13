@@ -107,9 +107,7 @@ func CreateClustersCommand() *cobra.Command {
 				if err != nil {
 					log.Error(err)
 				}
-				if known {
-					log.Debugf("✔ Cluster with the name %q already exists", clName)
-				} else {
+				if !known {
 					cl := &config.Cluster{Name: clName}
 					err = util.PrepareKubeConfig(cl)
 					if err != nil {
@@ -122,12 +120,12 @@ func CreateClustersCommand() *cobra.Command {
 	}
 	cmd.Flags().StringVarP(&flags.ImageName, "image", "i", "", "node docker image to use for booting the cluster")
 	cmd.Flags().BoolVarP(&flags.Retain, "retain", "", true, "retain nodes for debugging when cluster creation fails")
-	cmd.Flags().BoolVarP(&flags.Weave, "weave", "w", false, "deploy weave")
-	cmd.Flags().BoolVarP(&flags.Tiller, "tiller", "t", false, "deploy tiller")
-	cmd.Flags().BoolVarP(&flags.Calico, "calico", "c", false, "deploy calico")
-	cmd.Flags().BoolVarP(&flags.Flannel, "flannel", "f", false, "deploy flannel")
+	cmd.Flags().BoolVarP(&flags.Weave, "weave", "w", false, "deploy with weave")
+	cmd.Flags().BoolVarP(&flags.Tiller, "tiller", "t", false, "deploy with tiller")
+	cmd.Flags().BoolVarP(&flags.Calico, "calico", "c", false, "deploy with calico")
+	cmd.Flags().BoolVarP(&flags.Flannel, "flannel", "f", false, "deploy with flannel")
 	cmd.Flags().BoolVarP(&flags.Debug, "debug", "v", false, "set log level to debug")
-	cmd.Flags().BoolVarP(&flags.Overlap, "overlap", "o", false, "set log level to debug")
+	cmd.Flags().BoolVarP(&flags.Overlap, "overlap", "o", false, "create clusters with overlapping cidrs")
 	cmd.Flags().DurationVar(&flags.Wait, "wait", 5*time.Minute, "amount of minutes to wait for control plane nodes to be ready")
 	cmd.Flags().IntVarP(&flags.NumClusters, "num", "n", 2, "number of clusters to create")
 	return cmd
