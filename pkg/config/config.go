@@ -62,9 +62,9 @@ type Cluster struct {
 	NumWorkers int
 }
 
-// Flagpole is a list of cli flags
+// Flagpole is a list of cli flags for create clusters command
 type Flagpole struct {
-	// ImageName is the node image uaed for cluster creation
+	// ImageName is the node image used for cluster creation
 	ImageName string
 
 	// Wait is a time duration to wait until cluster is ready

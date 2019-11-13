@@ -15,7 +15,7 @@ import (
 // WaitForPodsRunning waits for pods to be running
 func WaitForPodsRunning(cl *config.Cluster, c kubernetes.Interface, namespace, selector string, replicas int) error {
 	ctx := context.Background()
-	log.Warnf("Waiting for pods to be running. label: %q, namespace: %q, replicas: %v, duration: %v, *types: %s.", selector, namespace, replicas, config.WaitDurationResources, cl.Name)
+	log.Debugf("Waiting for pods to be running. label: %q, namespace: %q, replicas: %v, duration: %v, *types: %s.", selector, namespace, replicas, config.WaitDurationResources, cl.Name)
 	podsContext, cancel := context.WithTimeout(ctx, config.WaitDurationResources)
 	wait.Until(func() {
 		podList, err := c.CoreV1().Pods(namespace).List(metav1.ListOptions{
@@ -28,7 +28,7 @@ func WaitForPodsRunning(cl *config.Cluster, c kubernetes.Interface, namespace, s
 		} else {
 			log.Debugf("Still waiting for pods. label: %q, namespace: %q, replicas: %v, duration: %v, cluster: %s.", selector, namespace, replicas, config.WaitDurationResources, cl.Name)
 		}
-	}, 30*time.Second, podsContext.Done())
+	}, 10*time.Second, podsContext.Done())
 
 	err := podsContext.Err()
 	if err != nil && err != context.Canceled {
