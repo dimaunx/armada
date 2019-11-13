@@ -46,6 +46,7 @@ func CreateClustersCommand() *cobra.Command {
 
 			if flags.Debug {
 				log.SetLevel(log.DebugLevel)
+				log.SetReportCaller(true)
 			}
 
 			box := packr.New("configs", "../../configs")
