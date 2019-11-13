@@ -61,7 +61,7 @@ docker-run:
 .PHONY: docker-run
 
 clean:
-	rm -rf packrd debug packr2 $(OUTPUTDIR) $(GOBASE)/cmd/armada/armada-packr.go $(GOBASE)/pkg/utils/utils-packr.go
+	rm -rf packrd debug packr2 $(OUTPUTDIR) $(GOBASE)/cmd/armada/armada-packr.go
 	-docker ps -qf status=exited | xargs docker rm -f
 	-docker ps -qaf name=$(PROJECTNAME)- | xargs docker rm -f
 	-docker images -qf dangling=true | xargs docker rmi -f

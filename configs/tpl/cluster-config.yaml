@@ -16,6 +16,6 @@ kubeadmConfigPatches:
       dnsDomain: {{.DNSDomain}}
 nodes:
   - role: control-plane
-  {{- range $i := Iterate 1 .NumWorkers }}
+  {{- range $i := iterate 1 .NumWorkers }}
   - role: worker
   {{- end }}

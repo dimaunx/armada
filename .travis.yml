@@ -15,13 +15,17 @@ jobs:
         make build && cd ./bin && \
         ./armada create clusters --calico --tiller && \
         ./armada create clusters -n 3 --image kindest/node:v1.14.6 --weave --tiller && \
-        ./armada create clusters -n 4 --flannel --image kindest/node:v1.13.10 --tiller
+        ./armada create clusters -n 5 --flannel --image kindest/node:v1.13.10 --tiller --overlap && \
+        ./armada destroy clusters --cluster cl2,cl5 && \
+        ./armada destroy clusters
       name: "local test"
     - script: |
         make docker-build && \
         make docker-run ARGS="./armada create clusters --calico --tiller" && \
         make docker-run ARGS="./armada create clusters -n 3 --image kindest/node:v1.14.6 --weave --tiller" && \
-        make docker-run ARGS="./armada create clusters -n 4 --flannel --image kindest/node:v1.13.10 --tiller"
+        make docker-run ARGS="./armada create clusters -n 5 --flannel --image kindest/node:v1.13.10 --tiller --overlap" && \
+        make docker-run ARGS="./armada destroy clusters --cluster cl2,cl5" && \
+        make docker-run ARGS="./armada destroy clusters"
       name: "docker test"
     - stage: "Release"
       script: skip

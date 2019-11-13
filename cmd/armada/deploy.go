@@ -2,14 +2,19 @@ package armada
 
 import (
 	"io/ioutil"
+	"os"
 	"strings"
+	"sync"
 
-	"github.com/dimaunx/armada/pkg/cluster"
-	"github.com/dimaunx/armada/pkg/constants"
-	"github.com/dimaunx/armada/pkg/utils"
+	"github.com/dimaunx/armada/pkg/config"
+	"github.com/dimaunx/armada/pkg/deploy"
+	"github.com/dimaunx/armada/pkg/util"
+	"github.com/dimaunx/armada/pkg/waiter"
 	"github.com/gobuffalo/packr/v2"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 type deployFlagpole struct {
@@ -46,7 +51,8 @@ func DeployNetshootCommand() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var netshootDeploymentFilePath string
 			var selector string
-			box := packr.New("manifests", "../../configs")
+
+			box := packr.New("configs", "../../configs")
 
 			if flags.HostNetwork {
 				netshootDeploymentFilePath = "debug/netshoot-daemonset-host.yaml"
@@ -61,30 +67,46 @@ func DeployNetshootCommand() *cobra.Command {
 				log.Error(err)
 			}
 
-			configFiles, err := ioutil.ReadDir(constants.KindConfigDir)
+			configFiles, err := ioutil.ReadDir(config.KindConfigDir)
 			if err != nil {
 				log.Fatal(err)
 			}
 
+			var wg sync.WaitGroup
+			wg.Add(len(configFiles))
 			for _, file := range configFiles {
-				clName := strings.Split(file.Name(), "-")[0]
-				cl := &cluster.Cluster{Name: clName}
+				go func(file os.FileInfo) {
+					clName := strings.Split(file.Name(), "-")[0]
+					cl := &config.Cluster{Name: clName}
 
-				kubeConfigFilePath, err := utils.GetKubeConfigPath(cl)
-				if err != nil {
-					log.Fatalf("%s %s", cl.Name, err)
-				}
+					kubeConfigFilePath, err := util.GetKubeConfigPath(cl)
+					if err != nil {
+						log.Fatalf("%s %s", cl.Name, err)
+					}
 
-				err = utils.DeployResources(cl, netshootDeploymentFile.String(), kubeConfigFilePath, "Netshoot")
-				if err != nil {
-					log.Fatalf("%s %s", cl.Name, err)
-				}
+					kconfig, err := clientcmd.BuildConfigFromFlags("", kubeConfigFilePath)
+					if err != nil {
+						log.Fatalf("%s %s", cl.Name, err)
+					}
 
-				err = utils.WaitForDaemonSet(cl, kubeConfigFilePath, "default", selector)
-				if err != nil {
-					log.Fatalf("%s %s", cl.Name, err)
-				}
+					clientSet, err := kubernetes.NewForConfig(kconfig)
+					if err != nil {
+						log.Fatalf("%s %s", cl.Name, err)
+					}
+
+					err = deploy.Resources(cl, clientSet, netshootDeploymentFile.String(), "Netshoot")
+					if err != nil {
+						log.Fatalf("%s %s", cl.Name, err)
+					}
+
+					err = waiter.WaitForDaemonSet(cl, clientSet, "default", selector)
+					if err != nil {
+						log.Fatalf("%s %s", cl.Name, err)
+					}
+					wg.Done()
+				}(file)
 			}
+			wg.Wait()
 			return nil
 		},
 	}
@@ -97,40 +119,57 @@ func DeployNginxDemoCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Args:  cobra.NoArgs,
 		Use:   "nginx-demo",
-		Short: "Deploy nginx service and pods",
-		Long:  "Deploy nginx service and pods",
+		Short: "Deploy nginx demo application service and pods",
+		Long:  "Deploy nginx demo application service and pods",
 		RunE: func(cmd *cobra.Command, args []string) error {
 
-			box := packr.New("manifests", "../configs")
+			box := packr.New("configs", "../../configs")
+
 			nginxDeploymentFile, err := box.Resolve("debug/nginx-demo-daemonset.yaml")
 			if err != nil {
 				log.Error(err)
 			}
 
-			configFiles, err := ioutil.ReadDir(constants.KindConfigDir)
+			configFiles, err := ioutil.ReadDir(config.KindConfigDir)
 			if err != nil {
 				log.Fatal(err)
 			}
 
+			var wg sync.WaitGroup
+			wg.Add(len(configFiles))
 			for _, file := range configFiles {
-				clName := strings.Split(file.Name(), "-")[0]
-				cl := &cluster.Cluster{Name: clName}
+				go func(file os.FileInfo) {
+					clName := strings.Split(file.Name(), "-")[0]
+					cl := &config.Cluster{Name: clName}
 
-				kubeConfigFilePath, err := utils.GetKubeConfigPath(cl)
-				if err != nil {
-					log.Fatal(err)
-				}
+					kubeConfigFilePath, err := util.GetKubeConfigPath(cl)
+					if err != nil {
+						log.Fatalf("%s %s", cl.Name, err)
+					}
 
-				err = utils.DeployResources(cl, nginxDeploymentFile.String(), kubeConfigFilePath, "Nginx")
-				if err != nil {
-					log.Fatal(err)
-				}
+					kconfig, err := clientcmd.BuildConfigFromFlags("", kubeConfigFilePath)
+					if err != nil {
+						log.Fatalf("%s %s", cl.Name, err)
+					}
 
-				err = utils.WaitForDaemonSet(cl, kubeConfigFilePath, "default", "nginx-demo")
-				if err != nil {
-					log.Fatal(err)
-				}
+					clientSet, err := kubernetes.NewForConfig(kconfig)
+					if err != nil {
+						log.Fatalf("%s %s", cl.Name, err)
+					}
+
+					err = deploy.Resources(cl, clientSet, nginxDeploymentFile.String(), "Nginx")
+					if err != nil {
+						log.Fatalf("%s %s", cl.Name, err)
+					}
+
+					err = waiter.WaitForDaemonSet(cl, clientSet, "default", "nginx-demo")
+					if err != nil {
+						log.Fatalf("%s %s", cl.Name, err)
+					}
+					wg.Done()
+				}(file)
 			}
+			wg.Wait()
 			return nil
 		},
 	}
