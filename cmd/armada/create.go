@@ -7,11 +7,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gobuffalo/packr/v2"
-
 	"github.com/dimaunx/armada/pkg/cluster"
 	"github.com/dimaunx/armada/pkg/config"
 	"github.com/dimaunx/armada/pkg/util"
+	"github.com/gobuffalo/packr/v2"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	kind "sigs.k8s.io/kind/pkg/cluster"

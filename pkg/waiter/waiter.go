@@ -46,7 +46,7 @@ func WaitForDeployment(cl *config.Cluster, c kubernetes.Interface, namespace, de
 		deployment, err := c.AppsV1().Deployments(namespace).Get(deploymentName, metav1.GetOptions{})
 		if err == nil {
 			if deployment.Status.ReadyReplicas == *deployment.Spec.Replicas {
-				log.Debugf("✔ %s successfully deployed to %s, ready replicas: %v", deploymentName, cl.Name, deployment.Status.ReadyReplicas)
+				log.Infof("✔ %s successfully deployed to %s, ready replicas: %v", deploymentName, cl.Name, deployment.Status.ReadyReplicas)
 				cancel()
 			} else {
 				log.Debugf("Still waiting for %s deployment for %s, ready replicas: %v", deploymentName, cl.Name, deployment.Status.ReadyReplicas)
@@ -71,7 +71,7 @@ func WaitForDaemonSet(cl *config.Cluster, c kubernetes.Interface, namespace, dae
 		daemonSet, err := c.AppsV1().DaemonSets(namespace).Get(daemonSetName, metav1.GetOptions{})
 		if err == nil && daemonSet.Status.CurrentNumberScheduled > 0 {
 			if daemonSet.Status.NumberReady == daemonSet.Status.DesiredNumberScheduled {
-				log.Debugf("✔ %s successfully rolled out to %s, ready replicas: %v", daemonSetName, cl.Name, daemonSet.Status.NumberReady)
+				log.Infof("✔ %s successfully rolled out to %s, ready replicas: %v", daemonSetName, cl.Name, daemonSet.Status.NumberReady)
 				cancel()
 			} else {
 				log.Debugf("Still waiting for %s daemon set roll out for %s, ready replicas: %v", daemonSetName, cl.Name, daemonSet.Status.NumberReady)

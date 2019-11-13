@@ -2,7 +2,9 @@ package armada
 
 import (
 	"io/ioutil"
+	"os"
 	"strings"
+	"sync"
 
 	"github.com/dimaunx/armada/pkg/config"
 	"k8s.io/client-go/kubernetes"
@@ -72,35 +74,41 @@ func DeployNetshootCommand() *cobra.Command {
 				log.Fatal(err)
 			}
 
+			var wg sync.WaitGroup
+			wg.Add(len(configFiles))
 			for _, file := range configFiles {
-				clName := strings.Split(file.Name(), "-")[0]
-				cl := &config.Cluster{Name: clName}
+				go func(file os.FileInfo) {
+					clName := strings.Split(file.Name(), "-")[0]
+					cl := &config.Cluster{Name: clName}
 
-				kubeConfigFilePath, err := util.GetKubeConfigPath(cl)
-				if err != nil {
-					log.Fatalf("%s %s", cl.Name, err)
-				}
+					kubeConfigFilePath, err := util.GetKubeConfigPath(cl)
+					if err != nil {
+						log.Fatalf("%s %s", cl.Name, err)
+					}
 
-				kconfig, err := clientcmd.BuildConfigFromFlags("", kubeConfigFilePath)
-				if err != nil {
-					return err
-				}
+					kconfig, err := clientcmd.BuildConfigFromFlags("", kubeConfigFilePath)
+					if err != nil {
+						log.Fatalf("%s %s", cl.Name, err)
+					}
 
-				clientSet, err := kubernetes.NewForConfig(kconfig)
-				if err != nil {
-					return err
-				}
+					clientSet, err := kubernetes.NewForConfig(kconfig)
+					if err != nil {
+						log.Fatalf("%s %s", cl.Name, err)
+					}
 
-				err = deploy.DeployResources(cl, clientSet, netshootDeploymentFile.String(), "Netshoot")
-				if err != nil {
-					log.Fatalf("%s %s", cl.Name, err)
-				}
+					err = deploy.DeployResources(cl, clientSet, netshootDeploymentFile.String(), "Netshoot")
+					if err != nil {
+						log.Fatalf("%s %s", cl.Name, err)
+					}
 
-				err = waiter.WaitForDaemonSet(cl, clientSet, "default", selector)
-				if err != nil {
-					log.Fatalf("%s %s", cl.Name, err)
-				}
+					err = waiter.WaitForDaemonSet(cl, clientSet, "default", selector)
+					if err != nil {
+						log.Fatalf("%s %s", cl.Name, err)
+					}
+					wg.Done()
+				}(file)
 			}
+			wg.Wait()
 			return nil
 		},
 	}

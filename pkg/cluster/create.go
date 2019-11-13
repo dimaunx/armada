@@ -134,7 +134,7 @@ func FinalizeSetup(cl *config.Cluster, flags *config.Flagpole, box *packr.Box, w
 			return err
 		}
 	case "flannel":
-		err = deploy.Flannel(cl, "", box)
+		err = deploy.Flannel(cl, kubeConfigFilepath, box)
 		if err != nil {
 			return err
 		}
@@ -144,17 +144,14 @@ func FinalizeSetup(cl *config.Cluster, flags *config.Flagpole, box *packr.Box, w
 			return err
 		}
 	}
-	w.PersistWith(spin.Spinner{Frames: []string{" ✔"}}, fmt.Sprintf(" Cluster %q is ready 🔥🔥🔥", cl.Name))
 
 	if flags.Tiller {
-		w := wow.New(os.Stdout, spin.Get(spin.Earth), "Finalizing the clusters setup ...")
-		w.Start()
 		err = deploy.Tiller(cl, kubeConfigFilepath, box)
 		if err != nil {
 			return err
 		}
-		w.PersistWith(spin.Spinner{Frames: []string{" ✔"}}, fmt.Sprintf(" Tiller deployed to %q 📦📦📦", cl.Name))
 	}
+	w.PersistWith(spin.Spinner{Frames: []string{" ✔"}}, fmt.Sprintf(" Cluster %q is ready 🔥🔥🔥", cl.Name))
 	wg.Done()
 	return nil
 }
