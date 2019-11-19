@@ -30,7 +30,7 @@ var _ = Describe("Utils", func() {
 				PodSubnet:           "10.4.0.0/14",
 				ServiceSubnet:       "100.1.0.0/16",
 				DNSDomain:           "cl1.local",
-				KubeAdminAPIVersion: "kubeadm.k8s.io/v1beta1",
+				KubeAdminAPIVersion: "kubeadm.k8s.io/v1beta2",
 				NumWorkers:          2,
 			}
 
