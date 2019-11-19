@@ -46,7 +46,7 @@ e2e: $(GINKGO)
 .PHONY: e2e
 
 validate: $(GOLANGCILINT) $(GOIMPORTS)
-	$(GOCMD) mod tidy
+	$(GOCMD) mod vendor
 	find . -name '*.go' -not -wholename './vendor/*' | while read -r file; do goimports -w -d "$$file"; done
 	golangci-lint run ./...
 .PHONY: validate
