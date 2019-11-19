@@ -1,4 +1,4 @@
-package waiter
+package wait
 
 import (
 	"context"
@@ -12,10 +12,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-// WaitForPodsRunning waits for pods to be running
-func WaitForPodsRunning(cl *config.Cluster, c kubernetes.Interface, namespace, selector string, replicas int) error {
+// ForPodsRunning waits for pods to be running
+func ForPodsRunning(clName string, c kubernetes.Interface, namespace, selector string, replicas int) error {
 	ctx := context.Background()
-	log.Debugf("Waiting for pods to be running. label: %q, namespace: %q, replicas: %v, duration: %v, *types: %s.", selector, namespace, replicas, config.WaitDurationResources, cl.Name)
+	log.Debugf("Waiting for pods to be running. label: %q, namespace: %q, replicas: %v, duration: %v, *types: %s.", selector, namespace, replicas, config.WaitDurationResources, clName)
 	podsContext, cancel := context.WithTimeout(ctx, config.WaitDurationResources)
 	wait.Until(func() {
 		podList, err := c.CoreV1().Pods(namespace).List(metav1.ListOptions{
@@ -23,10 +23,10 @@ func WaitForPodsRunning(cl *config.Cluster, c kubernetes.Interface, namespace, s
 			FieldSelector: "status.phase=Running",
 		})
 		if err == nil && len(podList.Items) == replicas {
-			log.Infof("✔ All pods with label: %q are running for %s.", selector, cl.Name)
+			log.Infof("✔ All pods with label: %q are running for %s.", selector, clName)
 			cancel()
 		} else {
-			log.Debugf("Still waiting for pods. label: %q, namespace: %q, replicas: %v, duration: %v, cluster: %s.", selector, namespace, replicas, config.WaitDurationResources, cl.Name)
+			log.Debugf("Still waiting for pods. label: %q, namespace: %q, replicas: %v, duration: %v, cluster: %s.", selector, namespace, replicas, config.WaitDurationResources, clName)
 		}
 	}, 10*time.Second, podsContext.Done())
 
@@ -37,22 +37,22 @@ func WaitForPodsRunning(cl *config.Cluster, c kubernetes.Interface, namespace, s
 	return nil
 }
 
-// WaitForDeployment waits for deployment roll out
-func WaitForDeployment(cl *config.Cluster, c kubernetes.Interface, namespace, deploymentName string) error {
+// ForDeploymentReady waits for deployment roll out
+func ForDeploymentReady(clName string, c kubernetes.Interface, namespace, deploymentName string) error {
 	ctx := context.Background()
-	log.Debugf("Waiting up to %v for %s deployment roll out %s...", config.WaitDurationResources, deploymentName, cl.Name)
+	log.Debugf("Waiting up to %v for %s deployment roll out %s...", config.WaitDurationResources, deploymentName, clName)
 	deploymentContext, cancel := context.WithTimeout(ctx, config.WaitDurationResources)
 	wait.Until(func() {
 		deployment, err := c.AppsV1().Deployments(namespace).Get(deploymentName, metav1.GetOptions{})
 		if err == nil {
 			if deployment.Status.ReadyReplicas == *deployment.Spec.Replicas {
-				log.Infof("✔ %s successfully deployed to %s, ready replicas: %v", deploymentName, cl.Name, deployment.Status.ReadyReplicas)
+				log.Infof("✔ %s successfully deployed to %s, ready replicas: %v", deploymentName, clName, deployment.Status.ReadyReplicas)
 				cancel()
 			} else {
-				log.Debugf("Still waiting for %s deployment for %s, ready replicas: %v", deploymentName, cl.Name, deployment.Status.ReadyReplicas)
+				log.Debugf("Still waiting for %s deployment for %s, ready replicas: %v", deploymentName, clName, deployment.Status.ReadyReplicas)
 			}
 		} else {
-			log.Debugf("Still waiting for %s deployment roll out %s...", deploymentName, cl.Name)
+			log.Debugf("Still waiting for %s deployment roll out %s...", deploymentName, clName)
 		}
 	}, 10*time.Second, deploymentContext.Done())
 	err := deploymentContext.Err()
@@ -62,22 +62,22 @@ func WaitForDeployment(cl *config.Cluster, c kubernetes.Interface, namespace, de
 	return nil
 }
 
-// WaitForDaemonSet waits for daemon set roll out
-func WaitForDaemonSet(cl *config.Cluster, c kubernetes.Interface, namespace, daemonSetName string) error {
+// ForDaemonSetReady waits for daemon set roll out
+func ForDaemonSetReady(clName string, c kubernetes.Interface, namespace, daemonSetName string) error {
 	ctx := context.Background()
-	log.Debugf("Waiting up to %v for %s daemon set roll out %s...", config.WaitDurationResources, daemonSetName, cl.Name)
+	log.Debugf("Waiting up to %v for %s daemon set roll out %s...", config.WaitDurationResources, daemonSetName, clName)
 	deploymentContext, cancel := context.WithTimeout(ctx, config.WaitDurationResources)
 	wait.Until(func() {
 		daemonSet, err := c.AppsV1().DaemonSets(namespace).Get(daemonSetName, metav1.GetOptions{})
 		if err == nil && daemonSet.Status.CurrentNumberScheduled > 0 {
 			if daemonSet.Status.NumberReady == daemonSet.Status.DesiredNumberScheduled {
-				log.Infof("✔ %s successfully rolled out to %s, ready replicas: %v", daemonSetName, cl.Name, daemonSet.Status.NumberReady)
+				log.Infof("✔ %s successfully rolled out to %s, ready replicas: %v", daemonSetName, clName, daemonSet.Status.NumberReady)
 				cancel()
 			} else {
-				log.Debugf("Still waiting for %s daemon set roll out for %s, ready replicas: %v", daemonSetName, cl.Name, daemonSet.Status.NumberReady)
+				log.Debugf("Still waiting for %s daemon set roll out for %s, ready replicas: %v", daemonSetName, clName, daemonSet.Status.NumberReady)
 			}
 		} else {
-			log.Debugf("Still waiting for %s daemon set roll out %s...", daemonSetName, cl.Name)
+			log.Debugf("Still waiting for %s daemon set roll out %s...", daemonSetName, clName)
 		}
 	}, 10*time.Second, deploymentContext.Done())
 	err := deploymentContext.Err()

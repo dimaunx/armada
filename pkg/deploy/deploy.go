@@ -4,8 +4,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/dimaunx/armada/pkg/config"
-	"github.com/dimaunx/armada/pkg/waiter"
+	"github.com/dimaunx/armada/pkg/wait"
 	"github.com/gobuffalo/packr/v2"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -20,11 +19,10 @@ import (
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/tools/clientcmd"
 )
 
-// Resources deploys k8s resources
-func Resources(cl *config.Cluster, c kubernetes.Interface, deploymentFile string, resourceName string) error {
+// CreateResources deploys k8s resources
+func CreateResources(clName string, clientSet kubernetes.Interface, deploymentFile string, resourceName string) error {
 	acceptedK8sTypes := regexp.MustCompile(`(Role|RoleBinding|ClusterRole|ClusterRoleBinding|ServiceAccount|ConfigMap|DaemonSet|Deployment|Service|Pod)`)
 	fileAsString := deploymentFile[:]
 	sepYamlfiles := strings.Split(fileAsString, "---")
@@ -46,105 +44,105 @@ func Resources(cl *config.Cluster, c kubernetes.Interface, deploymentFile string
 		} else {
 			switch o := obj.(type) {
 			case *corev1.ServiceAccount:
-				result, err := c.CoreV1().ServiceAccounts(o.Namespace).Create(o)
+				result, err := clientSet.CoreV1().ServiceAccounts(o.Namespace).Create(o)
 				if err != nil && !apierr.IsAlreadyExists(err) {
 					return err
 				} else if err == nil {
-					log.Debugf("✔ ServiceAccount %s was created for %s at: %s", o.Name, cl.Name, result.CreationTimestamp)
+					log.Debugf("✔ ServiceAccount %s was created for %s at: %s", o.Name, clName, result.CreationTimestamp)
 				}
 			case *rbacv1.Role:
-				result, err := c.RbacV1().Roles(o.Namespace).Create(o)
+				result, err := clientSet.RbacV1().Roles(o.Namespace).Create(o)
 				if err != nil && !apierr.IsAlreadyExists(err) {
 					return err
 				} else if err == nil {
-					log.Debugf("✔ Role %s created for %s at: %s", o.Name, cl.Name, result.CreationTimestamp)
+					log.Debugf("✔ Role %s created for %s at: %s", o.Name, clName, result.CreationTimestamp)
 				}
 			case *rbacv1.RoleBinding:
-				result, err := c.RbacV1().RoleBindings(o.Namespace).Create(o)
+				result, err := clientSet.RbacV1().RoleBindings(o.Namespace).Create(o)
 				if err != nil && !apierr.IsAlreadyExists(err) {
 					return err
 				} else if err == nil {
-					log.Debugf("✔ RoleBinding %s created for %s at: %s", o.Name, cl.Name, result.CreationTimestamp)
+					log.Debugf("✔ RoleBinding %s created for %s at: %s", o.Name, clName, result.CreationTimestamp)
 				}
 			case *rbacv1.ClusterRole:
-				result, err := c.RbacV1().ClusterRoles().Create(o)
+				result, err := clientSet.RbacV1().ClusterRoles().Create(o)
 				if err != nil && !apierr.IsAlreadyExists(err) {
 					return err
 				} else if err == nil {
-					log.Debugf("✔ ClusterRole %s was created for %s at: %s", o.Name, cl.Name, result.CreationTimestamp)
+					log.Debugf("✔ ClusterRole %s was created for %s at: %s", o.Name, clName, result.CreationTimestamp)
 				}
 			case *rbacv1.ClusterRoleBinding:
-				result, err := c.RbacV1().ClusterRoleBindings().Create(o)
+				result, err := clientSet.RbacV1().ClusterRoleBindings().Create(o)
 				if err != nil && !apierr.IsAlreadyExists(err) {
 					return err
 				} else if err == nil {
-					log.Debugf("✔ ClusterRoleBinding %s was created for %s at: %s", o.Name, cl.Name, result.CreationTimestamp)
+					log.Debugf("✔ ClusterRoleBinding %s was created for %s at: %s", o.Name, clName, result.CreationTimestamp)
 				}
 			case *corev1.ConfigMap:
-				result, err := c.CoreV1().ConfigMaps(o.Namespace).Create(o)
+				result, err := clientSet.CoreV1().ConfigMaps(o.Namespace).Create(o)
 				if err != nil && !apierr.IsAlreadyExists(err) {
 					return err
 				} else if err == nil {
-					log.Debugf("✔ ConfigMap %s was created for %s at: %s", o.Name, cl.Name, result.CreationTimestamp)
+					log.Debugf("✔ ConfigMap %s was created for %s at: %s", o.Name, clName, result.CreationTimestamp)
 				}
 			case *corev1.Service:
-				result, err := c.CoreV1().Services(o.Namespace).Create(o)
+				result, err := clientSet.CoreV1().Services(o.Namespace).Create(o)
 				if err != nil && !apierr.IsAlreadyExists(err) {
 					return err
 				} else if err == nil {
-					log.Debugf("✔ Service %s was created for %s at: %s", o.Name, cl.Name, result.CreationTimestamp)
+					log.Debugf("✔ Service %s was created for %s at: %s", o.Name, clName, result.CreationTimestamp)
 				}
 			case *corev1.Pod:
-				result, err := c.CoreV1().Pods(o.Namespace).Create(o)
+				result, err := clientSet.CoreV1().Pods(o.Namespace).Create(o)
 				if err != nil && !apierr.IsAlreadyExists(err) {
 					return err
 				} else if err == nil {
-					log.Debugf("✔ Pod %s was created for %s at: %s", o.Name, cl.Name, result.CreationTimestamp)
+					log.Debugf("✔ Pod %s was created for %s at: %s", o.Name, clName, result.CreationTimestamp)
 				}
 			case *policyv1beta1.PodSecurityPolicy:
-				result, err := c.PolicyV1beta1().PodSecurityPolicies().Create(o)
+				result, err := clientSet.PolicyV1beta1().PodSecurityPolicies().Create(o)
 				if err != nil && !apierr.IsAlreadyExists(err) {
 					return err
 				} else if err == nil {
-					log.Debugf("✔ PodSecurityPolicy %s was created for %s at: %s", o.Name, cl.Name, result.CreationTimestamp)
+					log.Debugf("✔ PodSecurityPolicy %s was created for %s at: %s", o.Name, clName, result.CreationTimestamp)
 				}
 			case *appsv1.DaemonSet:
-				result, err := c.AppsV1().DaemonSets(o.Namespace).Create(o)
+				result, err := clientSet.AppsV1().DaemonSets(o.Namespace).Create(o)
 				if err != nil && !apierr.IsAlreadyExists(err) {
 					return err
 				} else if err == nil {
-					log.Debugf("✔ Daemonset %s was created for %s at: %s", o.Name, cl.Name, result.CreationTimestamp)
+					log.Debugf("✔ Daemonset %s was created for %s at: %s", o.Name, clName, result.CreationTimestamp)
 				}
 			case *extv1beta.DaemonSet:
-				result, err := c.ExtensionsV1beta1().DaemonSets(o.Namespace).Create(o)
+				result, err := clientSet.ExtensionsV1beta1().DaemonSets(o.Namespace).Create(o)
 				if err != nil && !apierr.IsAlreadyExists(err) {
 					return err
 				} else if err == nil {
-					log.Debugf("✔ Daemonset %s was created for %s at: %s.", o.Name, cl.Name, result.CreationTimestamp)
+					log.Debugf("✔ Daemonset %s was created for %s at: %s.", o.Name, clName, result.CreationTimestamp)
 				}
 			case *appsv1.Deployment:
-				result, err := c.AppsV1().Deployments(o.Namespace).Create(o)
+				result, err := clientSet.AppsV1().Deployments(o.Namespace).Create(o)
 				if err != nil && !apierr.IsAlreadyExists(err) {
 					return err
 				} else if err == nil {
-					log.Debugf("✔ Deployment %s was created for %s at: %s", o.Name, cl.Name, result.CreationTimestamp)
+					log.Debugf("✔ Deployment %s was created for %s at: %s", o.Name, clName, result.CreationTimestamp)
 				}
 			case *extv1beta.Deployment:
-				result, err := c.ExtensionsV1beta1().Deployments(o.Namespace).Create(o)
+				result, err := clientSet.ExtensionsV1beta1().Deployments(o.Namespace).Create(o)
 				if err != nil && !apierr.IsAlreadyExists(err) {
 					return err
 				} else if err == nil {
-					log.Debugf("✔ Deployment %s created for %s at: %s", o.Name, cl.Name, result.CreationTimestamp)
+					log.Debugf("✔ Deployment %s created for %s at: %s", o.Name, clName, result.CreationTimestamp)
 				}
 			}
 		}
 	}
-	log.Debugf("✔ %s resources were deployed to %s.", resourceName, cl.Name)
+	log.Debugf("✔ %s resources were deployed to %s.", resourceName, clName)
 	return nil
 }
 
-// CrdResources deploys k8s CRD resources
-func CrdResources(cl *config.Cluster, c apiextclientset.Interface, deploymentFile string) error {
+// CreateCrdResources deploys k8s CRD resources
+func CreateCrdResources(clName string, apiExtClientSet apiextclientset.Interface, deploymentFile string) error {
 	acceptedK8sTypes := regexp.MustCompile(`(CustomResourceDefinition)`)
 	fileAsString := deploymentFile[:]
 	sepYamlfiles := strings.Split(fileAsString, "---")
@@ -166,11 +164,11 @@ func CrdResources(cl *config.Cluster, c apiextclientset.Interface, deploymentFil
 		} else {
 			switch o := obj.(type) {
 			case *apiextv1beta.CustomResourceDefinition:
-				_, err := c.ApiextensionsV1beta1().CustomResourceDefinitions().Create(o)
+				_, err := apiExtClientSet.ApiextensionsV1beta1().CustomResourceDefinitions().Create(o)
 				if err != nil && !apierr.IsAlreadyExists(err) {
 					return err
 				} else if err == nil {
-					log.Debugf("✔ CRD %s was created for %s.", o.Name, cl.Name)
+					log.Debugf("✔ CRD %s was created for %s.", o.Name, clName)
 				}
 			}
 		}
@@ -179,28 +177,18 @@ func CrdResources(cl *config.Cluster, c apiextclientset.Interface, deploymentFil
 }
 
 // Tiller deploys tiller to the clusters
-func Tiller(cl *config.Cluster, kubeConfigFilePath string, box *packr.Box) error {
-	kconfig, err := clientcmd.BuildConfigFromFlags("", kubeConfigFilePath)
-	if err != nil {
-		return err
-	}
-
-	clientSet, err := kubernetes.NewForConfig(kconfig)
-	if err != nil {
-		return err
-	}
-
+func Tiller(clName string, clientSet kubernetes.Interface, box *packr.Box) error {
 	tillerDeploymentFile, err := box.Resolve("helm/tiller-deployment.yaml")
 	if err != nil {
 		return err
 	}
 
-	err = Resources(cl, clientSet, tillerDeploymentFile.String(), "Tiller")
+	err = CreateResources(clName, clientSet, tillerDeploymentFile.String(), "Tiller")
 	if err != nil {
 		return err
 	}
 
-	err = waiter.WaitForDeployment(cl, clientSet, "kube-system", "tiller-deploy")
+	err = wait.ForDeploymentReady(clName, clientSet, "kube-system", "tiller-deploy")
 	if err != nil {
 		return err
 	}

@@ -11,8 +11,7 @@ import (
 	kind "sigs.k8s.io/kind/pkg/cluster"
 )
 
-type destroyFlagpole struct {
-	NumClusters int
+type DestroyFlagpole struct {
 	Clusters    []string
 }
 
@@ -30,7 +29,7 @@ func DestroyCmd() *cobra.Command {
 
 // DestroyClustersCommand returns a new cobra.Command under destroy command for armada
 func DestroyClustersCommand() *cobra.Command {
-	flags := &destroyFlagpole{}
+	flags := &DestroyFlagpole{}
 	cmd := &cobra.Command{
 		Args:  cobra.NoArgs,
 		Use:   "clusters",

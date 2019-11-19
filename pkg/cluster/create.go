@@ -4,20 +4,26 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/user"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
 
+	"github.com/dimaunx/armada/pkg/wait"
+
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
+
 	"github.com/Masterminds/semver"
 	"github.com/dimaunx/armada/pkg/config"
 	"github.com/dimaunx/armada/pkg/deploy"
-	"github.com/dimaunx/armada/pkg/util"
 	"github.com/gernest/wow"
 	"github.com/gernest/wow/spin"
 	"github.com/gobuffalo/packr/v2"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
+	apiextclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"sigs.k8s.io/kind/pkg/cluster"
 	"sigs.k8s.io/kind/pkg/cluster/create"
 	kindutil "sigs.k8s.io/kind/pkg/util"
@@ -36,7 +42,7 @@ func Create(cl *config.Cluster, flags *config.Flagpole, box *packr.Box, wg *sync
 		return err
 	}
 
-	kindConfigFilePath, err := util.GenerateKindConfig(cl, configDir, box)
+	kindConfigFilePath, err := GenerateKindConfig(cl, configDir, box)
 	if err != nil {
 		return err
 	}
@@ -107,7 +113,7 @@ func PopulateClusterConfig(i int, flags *config.Flagpole) (*config.Cluster, erro
 				cl.KubeAdminAPIVersion = "kubeadm.k8s.io/v1beta1"
 			}
 		} else {
-			return cl, errors.Errorf("%q: Could not extract version from %s, split is by ':v', example of correct image name: kindest/node:v1.15.3.", cl.Name, flags.ImageName)
+			return nil, errors.Errorf("%q: Could not extract version from %s, split is by ':v', example of correct image name: kindest/node:v1.15.3.", cl.Name, flags.ImageName)
 		}
 	}
 	return cl, nil
@@ -115,12 +121,40 @@ func PopulateClusterConfig(i int, flags *config.Flagpole) (*config.Cluster, erro
 
 // FinalizeSetup creates custom environment
 func FinalizeSetup(cl *config.Cluster, flags *config.Flagpole, box *packr.Box, wg *sync.WaitGroup) error {
-	err := util.PrepareKubeConfig(cl)
+	usr, err := user.Current()
+	if err != nil {
+		return errors.Wrap(err, "failed to get current user")
+	}
+
+	kindKubeFileName := strings.Join([]string{"kind-config", cl.Name}, "-")
+	kindKubeFilePath := filepath.Join(usr.HomeDir, ".kube", kindKubeFileName)
+
+	masterIP, err := GetMasterDockerIP(cl.Name)
 	if err != nil {
 		return err
 	}
 
-	kubeConfigFilepath, err := util.GetKubeConfigPath(cl)
+	err = PrepareKubeConfig(cl.Name, kindKubeFilePath, masterIP)
+	if err != nil {
+		return err
+	}
+
+	kubeConfigFilePath, err := GetKubeConfigPath(cl.Name)
+	if err != nil {
+		return err
+	}
+
+	kconfig, err := clientcmd.BuildConfigFromFlags("", kubeConfigFilePath)
+	if err != nil {
+		return err
+	}
+
+	clientSet, err := kubernetes.NewForConfig(kconfig)
+	if err != nil {
+		return err
+	}
+
+	apiExtClientSet, err := apiextclientset.NewForConfig(kconfig)
 	if err != nil {
 		return err
 	}
@@ -129,24 +163,79 @@ func FinalizeSetup(cl *config.Cluster, flags *config.Flagpole, box *packr.Box, w
 	w.Start()
 	switch cl.Cni {
 	case "calico":
-		err = deploy.Calico(cl, kubeConfigFilepath, box)
+		calicoDeploymentFile, err := GenerateCalicoDeploymentFile(cl, box)
+		if err != nil {
+			return err
+		}
+
+		calicoCrdFile, err := box.Resolve("tpl/calico-crd.yaml")
+		if err != nil {
+			return err
+		}
+
+		err = deploy.CreateCrdResources(cl.Name, apiExtClientSet, calicoCrdFile.String())
+		if err != nil {
+			return err
+		}
+
+		err = deploy.CreateResources(cl.Name, clientSet, calicoDeploymentFile, "Calico")
+		if err != nil {
+			return err
+		}
+
+		err = wait.ForDaemonSetReady(cl.Name, clientSet, "kube-system", "calico-node")
+		if err != nil {
+			return err
+		}
+
+		err = wait.ForDeploymentReady(cl.Name, clientSet, "kube-system", "coredns")
 		if err != nil {
 			return err
 		}
 	case "flannel":
-		err = deploy.Flannel(cl, kubeConfigFilepath, box)
+		flannelDeploymentFile, err := GenerateFlannelDeploymentFile(cl, box)
+		if err != nil {
+			return err
+		}
+
+		err = deploy.CreateResources(cl.Name, clientSet, flannelDeploymentFile, "Flannel")
+		if err != nil {
+			return err
+		}
+
+		err = wait.ForDaemonSetReady(cl.Name, clientSet, "kube-system", "kube-flannel-ds-amd64")
+		if err != nil {
+			return err
+		}
+
+		err = wait.ForDeploymentReady(cl.Name, clientSet, "kube-system", "coredns")
 		if err != nil {
 			return err
 		}
 	case "weave":
-		err = deploy.Weave(cl, kubeConfigFilepath, box)
+		weaveDeploymentFile, err := GenerateWeaveDeploymentFile(cl, box)
+		if err != nil {
+			return err
+		}
+
+		err = deploy.CreateResources(cl.Name, clientSet, weaveDeploymentFile, "Weave")
+		if err != nil {
+			return err
+		}
+
+		err = wait.ForDaemonSetReady(cl.Name, clientSet, "kube-system", "weave-net")
+		if err != nil {
+			return err
+		}
+
+		err = wait.ForDeploymentReady(cl.Name, clientSet, "kube-system", "coredns")
 		if err != nil {
 			return err
 		}
 	}
 
 	if flags.Tiller {
-		err = deploy.Tiller(cl, kubeConfigFilepath, box)
+		err = deploy.Tiller(cl.Name, clientSet, box)
 		if err != nil {
 			return err
 		}

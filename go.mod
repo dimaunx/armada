@@ -11,6 +11,8 @@ require (
 	github.com/gernest/wow v0.1.0
 	github.com/gobuffalo/packr/v2 v2.7.1
 	github.com/imdario/mergo v0.3.8 // indirect
+	github.com/onsi/ginkgo v1.10.3
+	github.com/onsi/gomega v1.7.1
 	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
 	github.com/pkg/errors v0.8.1
 	github.com/sirupsen/logrus v1.4.2

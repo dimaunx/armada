@@ -6,10 +6,11 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/dimaunx/armada/pkg/cluster"
+
 	"github.com/dimaunx/armada/pkg/config"
 	"github.com/dimaunx/armada/pkg/deploy"
-	"github.com/dimaunx/armada/pkg/util"
-	"github.com/dimaunx/armada/pkg/waiter"
+	"github.com/dimaunx/armada/pkg/wait"
 	"github.com/gobuffalo/packr/v2"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -77,31 +78,29 @@ func DeployNetshootCommand() *cobra.Command {
 			for _, file := range configFiles {
 				go func(file os.FileInfo) {
 					clName := strings.Split(file.Name(), "-")[0]
-					cl := &config.Cluster{Name: clName}
-
-					kubeConfigFilePath, err := util.GetKubeConfigPath(cl)
+					kubeConfigFilePath, err := cluster.GetKubeConfigPath(clName)
 					if err != nil {
-						log.Fatalf("%s %s", cl.Name, err)
+						log.Fatalf("%s %s", clName, err)
 					}
 
 					kconfig, err := clientcmd.BuildConfigFromFlags("", kubeConfigFilePath)
 					if err != nil {
-						log.Fatalf("%s %s", cl.Name, err)
+						log.Fatalf("%s %s", clName, err)
 					}
 
 					clientSet, err := kubernetes.NewForConfig(kconfig)
 					if err != nil {
-						log.Fatalf("%s %s", cl.Name, err)
+						log.Fatalf("%s %s", clName, err)
 					}
 
-					err = deploy.Resources(cl, clientSet, netshootDeploymentFile.String(), "Netshoot")
+					err = deploy.CreateResources(clName, clientSet, netshootDeploymentFile.String(), "Netshoot")
 					if err != nil {
-						log.Fatalf("%s %s", cl.Name, err)
+						log.Fatalf("%s %s", clName, err)
 					}
 
-					err = waiter.WaitForDaemonSet(cl, clientSet, "default", selector)
+					err = wait.ForDaemonSetReady(clName, clientSet, "default", selector)
 					if err != nil {
-						log.Fatalf("%s %s", cl.Name, err)
+						log.Fatalf("%s %s", clName, err)
 					}
 					wg.Done()
 				}(file)
@@ -142,7 +141,7 @@ func DeployNginxDemoCommand() *cobra.Command {
 					clName := strings.Split(file.Name(), "-")[0]
 					cl := &config.Cluster{Name: clName}
 
-					kubeConfigFilePath, err := util.GetKubeConfigPath(cl)
+					kubeConfigFilePath, err := cluster.GetKubeConfigPath(cl.Name)
 					if err != nil {
 						log.Fatalf("%s %s", cl.Name, err)
 					}
@@ -157,12 +156,12 @@ func DeployNginxDemoCommand() *cobra.Command {
 						log.Fatalf("%s %s", cl.Name, err)
 					}
 
-					err = deploy.Resources(cl, clientSet, nginxDeploymentFile.String(), "Nginx")
+					err = deploy.CreateResources(cl.Name, clientSet, nginxDeploymentFile.String(), "Nginx")
 					if err != nil {
 						log.Fatalf("%s %s", cl.Name, err)
 					}
 
-					err = waiter.WaitForDaemonSet(cl, clientSet, "default", "nginx-demo")
+					err = wait.ForDaemonSetReady(cl.Name, clientSet, "default", "nginx-demo")
 					if err != nil {
 						log.Fatalf("%s %s", cl.Name, err)
 					}

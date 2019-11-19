@@ -1,7 +1,7 @@
+PROJECTNAME := armada
 VERSION := $(shell git describe --tags | tr -d "v")
 BUILD := $(shell git rev-parse HEAD)
 USER := $(shell id -u)
-PROJECTNAME := $(shell basename "$(PWD)")
 OS := $(shell uname -s | tr '[:upper:]' '[:lower:]')
 export GO111MODULE := on
 export GOPROXY = https://proxy.golang.org
@@ -33,6 +33,17 @@ $(PACKR):
 $(GOIMPORTS):
 	GO111MODULE=off $(GOCMD) get -u golang.org/x/tools/cmd/goimports
 
+$(GINKGO):
+	GO111MODULE=off $(GOCMD) get -u github.com/onsi/ginkgo
+
+test: $(GINKGO)
+	ginkgo -v -cover ./pkg/...
+.PHONY: test
+
+e2e: $(GINKGO)
+	ginkgo -v ./test/e2e/...
+.PHONY: e2e
+
 validate: $(GOLANGCILINT) $(GOIMPORTS)
 	find . -name '*.go' -not -wholename './vendor/*' | while read -r file; do goimports -w -d "$$file"; done
 	golangci-lint run ./...
@@ -44,24 +55,17 @@ build: $(PACKR) validate
 	CGO_ENABLED=0 $(GOCMD) build $(LDFLAGS) -o $(GOBASE)/$(OUTPUTDIR)/$(PROJECTNAME)
 .PHONY: build
 
-docker-build-image:
-	docker build -t $(PROJECTNAME):$(VERSION) --build-arg PROJECTNAME=$(PROJECTNAME) --build-arg OUTPUTDIR=$(OUTPUTDIR) .
-	docker create --name $(PROJECTNAME)-$(VERSION)-builder $(PROJECTNAME):$(VERSION) /bin/sh
-.PHONY: docker-build-image
-
-docker-build: docker-build-image
-	$(eval CID=$(shell docker ps -aqf "name=$(PROJECTNAME)-$(VERSION)-builder"))
-	docker cp $(CID):/$(PROJECTNAME)/$(OUTPUTDIR) .
-	docker rm -f $(CID)
-.PHONY: docker-build
-
 docker-run:
-	docker run -it --rm --name $(PROJECTNAME)-$(VERSION)-runner -v /var/run/docker.sock:/var/run/docker.sock -v $(GOBASE)/$(OUTPUTDIR):/$(PROJECTNAME) -w /$(PROJECTNAME) docker:stable ${ARGS}
-	sudo chown -R $(USER):$(USER) $(GOBASE)/$(OUTPUTDIR)
+	${MAKE} docker ARGS="${ARGS}" || ${MAKE} fix-perm
 .PHONY: docker-run
 
-clean:
-	rm -rf packrd debug packr2 $(OUTPUTDIR) $(GOBASE)/cmd/armada/armada-packr.go
+docker:
+	docker run -it --rm --name $(PROJECTNAME)-$(VERSION)-runner -v /var/run/docker.sock:/var/run/docker.sock -v $(GOBASE):/$(PROJECTNAME) -w /$(PROJECTNAME) quay.io/submariner/dapper-base:latest ${ARGS}
+	sudo chown -R $(USER):$(USER) $(GOBASE)
+.PHONY: docker
+
+clean: fix-perm
+	rm -rf packrd debug packr2 $(OUTPUTDIR) $(GOBASE)/cmd/armada/armada-packr.go $(GOBASE)/pkg/*/*.cover* $(GOBASE)/pkg/*/output
 	-docker ps -qf status=exited | xargs docker rm -f
 	-docker ps -qaf name=$(PROJECTNAME)- | xargs docker rm -f
 	-docker images -qf dangling=true | xargs docker rmi -f
@@ -70,7 +74,5 @@ clean:
 .PHONY: clean
 
 fix-perm:
-	sudo chown -R $(USER):$(USER) $(GOBASE)/$(OUTPUTDIR)
+	sudo chown -R $(USER):$(USER) $(GOBASE)
 .PHONY: fix-perm
-
-.DEFAULT_GOAL := build

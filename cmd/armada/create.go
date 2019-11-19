@@ -2,6 +2,8 @@ package armada
 
 import (
 	"io/ioutil"
+	"os/user"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -9,7 +11,6 @@ import (
 
 	"github.com/dimaunx/armada/pkg/cluster"
 	"github.com/dimaunx/armada/pkg/config"
-	"github.com/dimaunx/armada/pkg/util"
 	"github.com/gobuffalo/packr/v2"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -109,7 +110,20 @@ func CreateClustersCommand() *cobra.Command {
 				}
 				if !known {
 					cl := &config.Cluster{Name: clName}
-					err = util.PrepareKubeConfig(cl)
+					usr, err := user.Current()
+					if err != nil {
+						log.Error(err)
+					}
+
+					kindKubeFileName := strings.Join([]string{"kind-config", cl.Name}, "-")
+					kindKubeFilePath := filepath.Join(usr.HomeDir, ".kube", kindKubeFileName)
+
+					masterIP, err := cluster.GetMasterDockerIP(clName)
+					if err != nil {
+						log.Error(err)
+					}
+
+					err = cluster.PrepareKubeConfig(clName, kindKubeFilePath, masterIP)
 					if err != nil {
 						log.Error(err)
 					}

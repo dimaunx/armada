@@ -403,7 +403,7 @@ spec:
             # chosen from this range. Changing this value after installation will have
             # no effect. This should fall within `--cluster-cidr`.
             - name: CALICO_IPV4POOL_CIDR
-              value: "{{.PodSubnet}}"
+              value: "1.2.3.4/16"
             # https://github.com/kubernetes-sigs/kind/issues/891
             - name: FELIX_IGNORELOOSERPF
               value: "true"
