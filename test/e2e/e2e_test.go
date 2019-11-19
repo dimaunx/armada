@@ -2,15 +2,16 @@ package e2e
 
 import (
 	"context"
-	dockertypes "github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/filters"
-	dockerclient "github.com/docker/docker/client"
 	"io/ioutil"
 	"os"
 	"strconv"
 	"strings"
 	"sync"
 	"testing"
+
+	dockertypes "github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/filters"
+	dockerclient "github.com/docker/docker/client"
 
 	"github.com/gobuffalo/packr/v2"
 

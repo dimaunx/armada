@@ -18,6 +18,7 @@ OUTPUTDIR := bin
 GOLANGCILINT := $(GOBIN)/golangci-lint
 PACKR := $(GOBIN)/packr2
 GOIMPORTS := $(GOBIN)/goimports
+GINKGO := $(GOBIN)/ginkgo
 
 # # Use linker flags to provide version/build settings
 LDFLAGS=-ldflags "-X github.com/dimaunx/armada/cmd/armada.Version=$(VERSION) -X github.com/dimaunx/armada/cmd/armada.Build=$(BUILD)"
@@ -34,7 +35,7 @@ $(GOIMPORTS):
 	GO111MODULE=off $(GOCMD) get -u golang.org/x/tools/cmd/goimports
 
 $(GINKGO):
-	GO111MODULE=off $(GOCMD) get -u github.com/onsi/ginkgo
+	GO111MODULE=off $(GOCMD) get -u github.com/onsi/ginkgo/ginkgo
 
 test: $(GINKGO)
 	ginkgo -v -cover ./pkg/...
