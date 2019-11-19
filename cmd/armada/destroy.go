@@ -11,6 +11,8 @@ import (
 	kind "sigs.k8s.io/kind/pkg/cluster"
 )
 
+
+// DestroyFlagpole flags for destroy command
 type DestroyFlagpole struct {
 	Clusters    []string
 }
