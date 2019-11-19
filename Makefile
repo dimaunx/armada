@@ -46,18 +46,18 @@ e2e: $(GINKGO)
 .PHONY: e2e
 
 validate: $(GOLANGCILINT) $(GOIMPORTS)
+	$(GOCMD) mod tidy
 	find . -name '*.go' -not -wholename './vendor/*' | while read -r file; do goimports -w -d "$$file"; done
 	golangci-lint run ./...
 .PHONY: validate
 
 build: $(PACKR) validate
-	$(GOCMD) mod tidy
 	packr2 -v --ignore-imports
 	CGO_ENABLED=0 $(GOCMD) build $(LDFLAGS) -o $(GOBASE)/$(OUTPUTDIR)/$(PROJECTNAME)
 .PHONY: build
 
 docker-run:
-	${MAKE} docker ARGS="${ARGS}" || ${MAKE} fix-perm
+	${MAKE} docker ARGS="${ARGS}" || { echo "failure!"; ${MAKE} fix-perm; exit 1; };
 .PHONY: docker-run
 
 docker:
@@ -66,7 +66,7 @@ docker:
 .PHONY: docker
 
 clean: fix-perm
-	rm -rf packrd debug packr2 $(OUTPUTDIR) $(GOBASE)/cmd/armada/armada-packr.go $(GOBASE)/pkg/*/*.cover* $(GOBASE)/pkg/*/output
+	rm -rf packrd debug packr2 $(OUTPUTDIR) $(GOBASE)/vendor $(GOBASE)/cmd/armada/armada-packr.go $(GOBASE)/pkg/*/*.cover* $(GOBASE)/pkg/*/output
 	-docker ps -qf status=exited | xargs docker rm -f
 	-docker ps -qaf name=$(PROJECTNAME)- | xargs docker rm -f
 	-docker images -qf dangling=true | xargs docker rmi -f
