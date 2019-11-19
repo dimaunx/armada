@@ -51,7 +51,7 @@ validate: $(GOLANGCILINT) $(GOIMPORTS)
 .PHONY: validate
 
 build: $(PACKR) validate
-	$(GOCMD) mod vendor
+	$(GOCMD) mod tidy
 	packr2 -v --ignore-imports
 	CGO_ENABLED=0 $(GOCMD) build $(LDFLAGS) -o $(GOBASE)/$(OUTPUTDIR)/$(PROJECTNAME)
 .PHONY: build
