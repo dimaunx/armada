@@ -199,7 +199,7 @@ var _ = Describe("Cluster", func() {
 	Context("e2e: Cluster deletion", func() {
 		It("Should destroy clusters 1 and 3 only", func() {
 			flags := armada.DestroyFlagpole{
-				Clusters: []string{config.ClusterNameBase + strconv.Itoa(2), config.ClusterNameBase + strconv.Itoa(4)},
+				Clusters: []string{config.ClusterNameBase + strconv.Itoa(1), config.ClusterNameBase + strconv.Itoa(3)},
 			}
 
 			for _, clName := range flags.Clusters {
