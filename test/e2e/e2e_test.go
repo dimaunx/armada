@@ -158,7 +158,7 @@ var _ = Describe("Cluster", func() {
 		})
 		It("Should create a fourth clusters with calico", func() {
 			flags := config.Flagpole{
-				NumClusters: 3,
+				NumClusters: 4,
 				Calico:      true,
 			}
 
