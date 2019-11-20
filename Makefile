@@ -72,7 +72,7 @@ docker-run:
 .PHONY: docker-run
 
 docker:
-	docker run -it --rm --name $(PROJECTNAME)-$(VERSION)-runner -v /var/run/docker.sock:/var/run/docker.sock -v $(GOBASE)/$(OUTPUTDIR):/$(PROJECTNAME) -w /$(PROJECTNAME) quay.io/submariner/dapper-base:latest ${ARGS}
+	docker run -it --rm --name $(PROJECTNAME)-$(VERSION)-runner -v /var/run/docker.sock:/var/run/docker.sock -v $(GOBASE):/$(PROJECTNAME) -w /$(PROJECTNAME) quay.io/submariner/dapper-base:latest ${ARGS}
 	sudo chown -R $(USER):$(USER) $(GOBASE)
 .PHONY: docker
 
