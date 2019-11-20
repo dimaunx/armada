@@ -29,6 +29,10 @@ import (
 func CreateEnvironment(flags *config.Flagpole, provider *kind.Provider) ([]*config.Cluster, error) {
 	box := packr.New("configs", "../../configs")
 
+	if flags.Debug {
+		log.SetLevel(log.DebugLevel)
+	}
+
 	var clusters []*config.Cluster
 	for i := 1; i <= flags.NumClusters; i++ {
 		clName := config.ClusterNameBase + strconv.Itoa(i)
@@ -94,7 +98,6 @@ var _ = Describe("Cluster", func() {
 				Overlap:     true,
 				Flannel:     true,
 				Debug:       true,
-
 			}
 
 			clusters, err := CreateEnvironment(&flags, provider)

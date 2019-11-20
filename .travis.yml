@@ -13,13 +13,7 @@ jobs:
     - stage: "Test"
       script: make build && make test && make e2e
       name: "local test"
-    - script: |
-        make docker-build && \
-        make docker-run ARGS="./armada create clusters -n 2 --flannel --overlap -v" && \
-        make docker-run ARGS="./armada create clusters -n 3 --weave --tiller --image kindest/node:v1.14.9 -v" && \
-        make docker-run ARGS="./armada create clusters -n 4 --calico -v" && \
-        make docker-run ARGS="./armada destroy clusters --clusters cl1,cl3" && \
-        make docker-run ARGS="./armada destroy clusters"
+    - script: make docker-build && make docker-run ARGS="make test" && make docker-run ARGS="make e2e"
       name: "docker test"
     - stage: "Release"
       script: skip
