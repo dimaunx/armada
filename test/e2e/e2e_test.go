@@ -2,11 +2,7 @@ package e2e
 
 import (
 	"context"
-	"github.com/dimaunx/armada/pkg/deploy"
-	"github.com/dimaunx/armada/pkg/wait"
 	"io/ioutil"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -14,6 +10,11 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/dimaunx/armada/pkg/deploy"
+	"github.com/dimaunx/armada/pkg/wait"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 
 	dockertypes "github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
