@@ -95,7 +95,7 @@ subjects:
     name: weave-net
     namespace: kube-system
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: weave-net
@@ -103,6 +103,9 @@ metadata:
     name: weave-net
   namespace: kube-system
 spec:
+  selector:
+    matchLabels:
+      name: weave-net
   minReadySeconds: 5
   template:
     metadata:

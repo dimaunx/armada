@@ -1,7 +1,7 @@
 package cluster
 
 import (
-	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
 	"os/user"
@@ -18,19 +18,16 @@ import (
 	"github.com/Masterminds/semver"
 	"github.com/dimaunx/armada/pkg/config"
 	"github.com/dimaunx/armada/pkg/deploy"
-	"github.com/gernest/wow"
-	"github.com/gernest/wow/spin"
 	"github.com/gobuffalo/packr/v2"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	apiextclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	"sigs.k8s.io/kind/pkg/cluster"
-	"sigs.k8s.io/kind/pkg/cluster/create"
-	kindutil "sigs.k8s.io/kind/pkg/util"
+	kind "sigs.k8s.io/kind/pkg/cluster"
+	kinderrors "sigs.k8s.io/kind/pkg/errors"
 )
 
 // Create creates cluster with kind
-func Create(cl *config.Cluster, flags *config.Flagpole, box *packr.Box, wg *sync.WaitGroup) error {
+func Create(cl *config.Cluster, flags *config.Flagpole, provider *kind.Provider, box *packr.Box, wg *sync.WaitGroup) error {
 	currentDir, err := os.Getwd()
 	if err != nil {
 		return err
@@ -47,22 +44,30 @@ func Create(cl *config.Cluster, flags *config.Flagpole, box *packr.Box, wg *sync
 		return err
 	}
 
-	ctx := cluster.NewContext(cl.Name)
+	raw, err := ioutil.ReadFile(kindConfigFilePath)
+	if err != nil {
+		return err
+	}
+
 	log.Infof("Creating cluster %q, cni: %s, podcidr: %s, servicecidr: %s, workers: %v.", cl.Name, cl.Cni, cl.PodSubnet, cl.ServiceSubnet, cl.NumWorkers)
 
-	if err := ctx.Create(
-		create.WithConfigFile(kindConfigFilePath),
-		create.WithNodeImage(flags.ImageName),
-		create.Retain(flags.Retain),
-		create.WaitForReady(flags.Wait),
+	if err = provider.Create(
+		cl.Name,
+		kind.CreateWithRawConfig(raw),
+		kind.CreateWithNodeImage(flags.ImageName),
+		kind.CreateWithKubeconfigPath(cl.KubeConfigFilePath),
+		kind.CreateWithRetain(flags.Retain),
+		kind.CreateWithWaitForReady(flags.Wait),
+		kind.CreateWithDisplayUsage(true),
+		kind.CreateWithDisplaySalutation(true),
 	); err != nil {
-		if utilErrors, ok := err.(kindutil.Errors); ok {
-			for _, problem := range utilErrors.Errors() {
+		if errs := kinderrors.Errors(err); errs != nil {
+			for _, problem := range errs {
 				return problem
 			}
 			return errors.New("aborting due to invalid configuration")
 		}
-		return errors.Wrapf(err, "failed to create cluster %q", cl.Name)
+		return errors.Wrap(err, "failed to create cluster")
 	}
 	wg.Done()
 	return nil
@@ -71,11 +76,17 @@ func Create(cl *config.Cluster, flags *config.Flagpole, box *packr.Box, wg *sync
 // PopulateClusterConfig return a desired cluster object
 func PopulateClusterConfig(i int, flags *config.Flagpole) (*config.Cluster, error) {
 
+	usr, err := user.Current()
+	if err != nil {
+		return nil, err
+	}
+
 	cl := &config.Cluster{
 		Name:                config.ClusterNameBase + strconv.Itoa(i),
 		NumWorkers:          config.NumWorkers,
 		DNSDomain:           config.ClusterNameBase + strconv.Itoa(i) + ".local",
 		KubeAdminAPIVersion: config.KubeAdminAPIVersion,
+		KubeConfigFilePath:  filepath.Join(usr.HomeDir, ".kube", strings.Join([]string{"kind-config", config.ClusterNameBase + strconv.Itoa(i)}, "-")),
 	}
 
 	podIP := net.ParseIP(config.PodCidrBase)
@@ -121,30 +132,22 @@ func PopulateClusterConfig(i int, flags *config.Flagpole) (*config.Cluster, erro
 
 // FinalizeSetup creates custom environment
 func FinalizeSetup(cl *config.Cluster, flags *config.Flagpole, box *packr.Box, wg *sync.WaitGroup) error {
-	usr, err := user.Current()
-	if err != nil {
-		return errors.Wrap(err, "failed to get current user")
-	}
-
-	kindKubeFileName := strings.Join([]string{"kind-config", cl.Name}, "-")
-	kindKubeFilePath := filepath.Join(usr.HomeDir, ".kube", kindKubeFileName)
-
 	masterIP, err := GetMasterDockerIP(cl.Name)
 	if err != nil {
 		return err
 	}
 
-	err = PrepareKubeConfig(cl.Name, kindKubeFilePath, masterIP)
+	err = PrepareKubeConfigs(cl.Name, cl.KubeConfigFilePath, masterIP)
 	if err != nil {
 		return err
 	}
 
-	kubeConfigFilePath, err := GetKubeConfigPath(cl.Name)
+	newKubeConfigFilePath, err := GetKubeConfigPath(cl.Name)
 	if err != nil {
 		return err
 	}
 
-	kconfig, err := clientcmd.BuildConfigFromFlags("", kubeConfigFilePath)
+	kconfig, err := clientcmd.BuildConfigFromFlags("", newKubeConfigFilePath)
 	if err != nil {
 		return err
 	}
@@ -159,8 +162,7 @@ func FinalizeSetup(cl *config.Cluster, flags *config.Flagpole, box *packr.Box, w
 		return err
 	}
 
-	w := wow.New(os.Stdout, spin.Get(spin.Earth), "Finalizing the clusters setup ...")
-	w.Start()
+	log.Infof("Finalizing %q cluster setup ...", cl.Name)
 	switch cl.Cni {
 	case "calico":
 		calicoDeploymentFile, err := GenerateCalicoDeploymentFile(cl, box)
@@ -240,7 +242,7 @@ func FinalizeSetup(cl *config.Cluster, flags *config.Flagpole, box *packr.Box, w
 			return err
 		}
 	}
-	w.PersistWith(spin.Spinner{Frames: []string{" ✔"}}, fmt.Sprintf(" Cluster %q is ready 🔥🔥🔥", cl.Name))
+	log.Infof("✔ Cluster %q is ready 🔥🔥🔥", cl.Name)
 	wg.Done()
 	return nil
 }

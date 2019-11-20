@@ -181,7 +181,7 @@ var _ = Describe("Utils", func() {
 			newLocalKubeFilePath := filepath.Join(currentDir, config.LocalKubeConfigDir, kindKubeFileName)
 			newContainerKubeFilePath := filepath.Join(currentDir, config.ContainerKubeConfigDir, kindKubeFileName)
 			gfs := filepath.Join(configDir, "kubeconfig_source")
-			err = PrepareKubeConfig(cl.Name, gfs, "172.17.0.3")
+			err = PrepareKubeConfigs(cl.Name, gfs, "172.17.0.3")
 			Ω(err).ShouldNot(HaveOccurred())
 
 			local, err := ioutil.ReadFile(newLocalKubeFilePath)
