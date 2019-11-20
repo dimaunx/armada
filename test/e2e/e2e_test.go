@@ -129,7 +129,7 @@ var _ = Describe("Cluster", func() {
 				},
 			}))
 		})
-		It("Should create a third clusters with weave, kindest/node:v1.14.9 and tiller", func() {
+		It("Should create a third cluster with weave, kindest/node:v1.14.9 and tiller", func() {
 			flags := config.Flagpole{
 				NumClusters: 3,
 				Weave:       true,
@@ -171,36 +171,9 @@ var _ = Describe("Cluster", func() {
 				},
 			}))
 		})
-		It("Should create a fourth clusters with calico", func() {
-			flags := config.Flagpole{
-				NumClusters: 4,
-				Calico:      true,
-				Debug:       true,
-			}
-
-			clusters, err := CreateEnvironment(&flags, provider)
-			Ω(err).ShouldNot(HaveOccurred())
-
-			cl4Status, err := cluster.IsKnown(config.ClusterNameBase+strconv.Itoa(4), provider)
-			Ω(err).ShouldNot(HaveOccurred())
-
-			Expect(cl4Status).Should(BeTrue())
-			Expect(clusters).Should(Equal([]*config.Cluster{
-				{
-					Cni:                 "calico",
-					Name:                config.ClusterNameBase + strconv.Itoa(4),
-					PodSubnet:           "10.16.0.0/14",
-					ServiceSubnet:       "100.4.0.0/16",
-					DNSDomain:           config.ClusterNameBase + strconv.Itoa(4) + ".local",
-					KubeAdminAPIVersion: "kubeadm.k8s.io/v1beta2",
-					NumWorkers:          config.NumWorkers,
-					KubeConfigFilePath:  filepath.Join(usr.HomeDir, ".kube", "kind-config-"+config.ClusterNameBase+strconv.Itoa(4)),
-				},
-			}))
-		})
 		It("Should not create a new cluster", func() {
 			flags := config.Flagpole{
-				NumClusters: 4,
+				NumClusters: 3,
 			}
 
 			for i := 1; i <= flags.NumClusters; i++ {
@@ -236,13 +209,10 @@ var _ = Describe("Cluster", func() {
 			Ω(err).ShouldNot(HaveOccurred())
 			cl3Status, err := cluster.IsKnown(config.ClusterNameBase+strconv.Itoa(3), provider)
 			Ω(err).ShouldNot(HaveOccurred())
-			cl4Status, err := cluster.IsKnown(config.ClusterNameBase+strconv.Itoa(4), provider)
-			Ω(err).ShouldNot(HaveOccurred())
 
 			Expect(cl1Status).Should(BeFalse())
 			Expect(cl2Status).Should(BeTrue())
 			Expect(cl3Status).Should(BeFalse())
-			Expect(cl4Status).Should(BeTrue())
 		})
 		It("Should destroy all remaining clusters", func() {
 			configFiles, err := ioutil.ReadDir(config.KindConfigDir)
@@ -260,13 +230,10 @@ var _ = Describe("Cluster", func() {
 			Ω(err).ShouldNot(HaveOccurred())
 			cl3Status, err := cluster.IsKnown(config.ClusterNameBase+strconv.Itoa(3), provider)
 			Ω(err).ShouldNot(HaveOccurred())
-			cl4Status, err := cluster.IsKnown(config.ClusterNameBase+strconv.Itoa(4), provider)
-			Ω(err).ShouldNot(HaveOccurred())
 
 			Expect(cl1Status).Should(BeFalse())
 			Expect(cl2Status).Should(BeFalse())
 			Expect(cl3Status).Should(BeFalse())
-			Expect(cl4Status).Should(BeFalse())
 		})
 	})
 })
