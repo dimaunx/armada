@@ -90,6 +90,7 @@ var _ = Describe("Cluster", func() {
 		It("Should create 2 clusters with kindnet and overlapping cidrs", func() {
 			flags := config.Flagpole{
 				NumClusters: 2,
+				Overlap:     true,
 			}
 
 			clusters, err := CreateEnvironment(&flags)
