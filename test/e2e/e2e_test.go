@@ -24,6 +24,52 @@ import (
 	kind "sigs.k8s.io/kind/pkg/cluster"
 )
 
+func CreateEnvironment(flags *config.Flagpole) ([]*config.Cluster, error) {
+	box := packr.New("configs", "../../configs")
+
+	var clusters []*config.Cluster
+	for i := 1; i <= flags.NumClusters; i++ {
+		clName := config.ClusterNameBase + strconv.Itoa(i)
+		known, err := kind.IsKnown(clName)
+		if err != nil {
+			return nil, err
+		}
+		if known {
+			log.Infof("✔ Cluster with the name %q already exists.", clName)
+		} else {
+			cl, err := cluster.PopulateClusterConfig(i, flags)
+			if err != nil {
+				return nil, err
+			}
+			clusters = append(clusters, cl)
+		}
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(len(clusters))
+	for _, cl := range clusters {
+		go func(cl *config.Cluster) {
+			err := cluster.Create(cl, flags, box, &wg)
+			if err != nil {
+				log.Fatal(err)
+			}
+		}(cl)
+	}
+	wg.Wait()
+
+	wg.Add(len(clusters))
+	for _, cl := range clusters {
+		go func(cl *config.Cluster) {
+			err := cluster.FinalizeSetup(cl, flags, box, &wg)
+			if err != nil {
+				log.Fatal(err)
+			}
+		}(cl)
+	}
+	wg.Wait()
+	return clusters, nil
+}
+
 func TestCluster(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "E2E test suite")
@@ -42,66 +88,31 @@ var _ = Describe("Cluster", func() {
 		_ = os.RemoveAll("./output")
 	})
 	Context("e2e: Cluster creation", func() {
-		var activeClusters []*config.Cluster
-		It("Should create 2 clusters with calico and overlapping cidrs", func() {
+		It("Should create 2 clusters with flannel", func() {
 			flags := config.Flagpole{
 				NumClusters: 2,
-				Calico:      true,
-				Overlap:     true,
+				Flannel:     true,
 			}
 
-			box := packr.New("configs", "../../configs")
+			clusters, err := CreateEnvironment(&flags)
+			Ω(err).ShouldNot(HaveOccurred())
 
-			var clusters []*config.Cluster
-			for i := 1; i <= flags.NumClusters; i++ {
-				clName := config.ClusterNameBase + strconv.Itoa(i)
-				known, err := kind.IsKnown(clName)
-				Ω(err).ShouldNot(HaveOccurred())
-				if known {
-					log.Infof("✔ Cluster with the name %q already exists.", clName)
-				} else {
-					cl, err := cluster.PopulateClusterConfig(i, &flags)
-					Ω(err).ShouldNot(HaveOccurred())
-					clusters = append(clusters, cl)
-				}
-			}
-
-			var wg sync.WaitGroup
-			wg.Add(len(clusters))
-			for _, cl := range clusters {
-				go func(cl *config.Cluster) {
-					err := cluster.Create(cl, &flags, box, &wg)
-					Ω(err).ShouldNot(HaveOccurred())
-				}(cl)
-			}
-			wg.Wait()
-
-			wg.Add(len(clusters))
-			for _, cl := range clusters {
-				go func(cl *config.Cluster) {
-					err := cluster.FinalizeSetup(cl, &flags, box, &wg)
-					Ω(err).ShouldNot(HaveOccurred())
-					activeClusters = append(activeClusters, cl)
-				}(cl)
-			}
-			wg.Wait()
-
-			Expect(len(activeClusters)).Should(Equal(2))
+			Expect(len(clusters)).Should(Equal(2))
 			Expect(clusters).Should(Equal([]*config.Cluster{
 				{
-					Cni:                 "calico",
+					Cni:                 "flannel",
 					Name:                config.ClusterNameBase + strconv.Itoa(1),
-					PodSubnet:           "10.0.0.0/14",
-					ServiceSubnet:       "100.0.0.0/16",
+					PodSubnet:           "10.4.0.0/14",
+					ServiceSubnet:       "100.1.0.0/16",
 					DNSDomain:           config.ClusterNameBase + strconv.Itoa(1) + ".local",
 					KubeAdminAPIVersion: config.KubeAdminAPIVersion,
 					NumWorkers:          config.NumWorkers,
 				},
 				{
-					Cni:                 "calico",
+					Cni:                 "flannel",
 					Name:                config.ClusterNameBase + strconv.Itoa(2),
-					PodSubnet:           "10.0.0.0/14",
-					ServiceSubnet:       "100.0.0.0/16",
+					PodSubnet:           "10.8.0.0/14",
+					ServiceSubnet:       "100.2.0.0/16",
 					DNSDomain:           config.ClusterNameBase + strconv.Itoa(2) + ".local",
 					KubeAdminAPIVersion: config.KubeAdminAPIVersion,
 					NumWorkers:          config.NumWorkers,
@@ -116,41 +127,8 @@ var _ = Describe("Cluster", func() {
 				ImageName:   "kindest/node:v1.14.6",
 			}
 
-			box := packr.New("configs", "../../configs")
-
-			var clusters []*config.Cluster
-			for i := 1; i <= flags.NumClusters; i++ {
-				clName := config.ClusterNameBase + strconv.Itoa(i)
-				known, err := kind.IsKnown(clName)
-				Ω(err).ShouldNot(HaveOccurred())
-				if known {
-					log.Infof("✔ Cluster with the name %q already exists.", clName)
-				} else {
-					cl, err := cluster.PopulateClusterConfig(i, &flags)
-					Ω(err).ShouldNot(HaveOccurred())
-					clusters = append(clusters, cl)
-				}
-			}
-
-			var wg sync.WaitGroup
-			wg.Add(len(clusters))
-			for _, cl := range clusters {
-				go func(cl *config.Cluster) {
-					err := cluster.Create(cl, &flags, box, &wg)
-					Ω(err).ShouldNot(HaveOccurred())
-				}(cl)
-			}
-			wg.Wait()
-
-			wg.Add(len(clusters))
-			for _, cl := range clusters {
-				go func(cl *config.Cluster) {
-					err := cluster.FinalizeSetup(cl, &flags, box, &wg)
-					Ω(err).ShouldNot(HaveOccurred())
-					activeClusters = append(activeClusters, cl)
-				}(cl)
-			}
-			wg.Wait()
+			clusters, err := CreateEnvironment(&flags)
+			Ω(err).ShouldNot(HaveOccurred())
 
 			ctx := context.Background()
 			dockerCli, err := dockerclient.NewEnvClient()
@@ -166,7 +144,7 @@ var _ = Describe("Cluster", func() {
 			image := container[0].Image
 
 			Expect(image).Should(Equal(flags.ImageName))
-			Expect(len(activeClusters)).Should(Equal(3))
+			Expect(len(clusters)).Should(Equal(1))
 			Expect(clusters).Should(Equal([]*config.Cluster{
 				{
 					Cni:                 "weave",
