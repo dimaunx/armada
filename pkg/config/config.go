@@ -5,7 +5,7 @@ import "time"
 // Default values
 const (
 	// ClusterNameBase is the default prefix for all cluster names
-	ClusterNameBase = "cl"
+	ClusterNameBase = "cluster"
 
 	// PodCidrBase the default starting pod cidr for all the clusters
 	PodCidrBase = "10.0.0.0"

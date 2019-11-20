@@ -2,6 +2,7 @@ package cluster
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -126,6 +127,8 @@ var _ = Describe("Utils", func() {
 
 			configDir := filepath.Join(currentDir, "testdata/kind")
 			gf := filepath.Join(configDir, "v1beta1.golden")
+			cl.Name = "cl5"
+			cl.DNSDomain = "cl5.local"
 			configPath, err := GenerateKindConfig(cl, configDir, box)
 			Ω(err).ShouldNot(HaveOccurred())
 
@@ -154,6 +157,8 @@ var _ = Describe("Utils", func() {
 
 			configDir := filepath.Join(currentDir, "testdata/kind")
 			gf := filepath.Join(configDir, "v1beta2.golden")
+			cl.Name = "cl8"
+			cl.DNSDomain = "cl8.local"
 			configPath, err := GenerateKindConfig(cl, configDir, box)
 			Ω(err).ShouldNot(HaveOccurred())
 
@@ -162,7 +167,7 @@ var _ = Describe("Utils", func() {
 			actual, err := ioutil.ReadFile(configPath)
 			Ω(err).ShouldNot(HaveOccurred())
 
-			Expect(actual).Should(Equal(golden))
+			Expect(string(actual)).Should(Equal(string(golden)))
 
 			_ = os.RemoveAll(configPath)
 		})
@@ -304,10 +309,12 @@ var _ = Describe("Utils", func() {
 			})
 			Ω(err).ShouldNot(HaveOccurred())
 
+			fmt.Print(containers)
 			actual := containers[0].NetworkSettings.Networks["bridge"].IPAddress
 
 			masterIP, err := GetMasterDockerIP("cl2")
 			Ω(err).ShouldNot(HaveOccurred())
+			fmt.Printf("actual: %s , returned: %s", actual, masterIP)
 
 			Expect(actual).Should(Equal(masterIP))
 		})
