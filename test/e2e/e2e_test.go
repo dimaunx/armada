@@ -169,7 +169,7 @@ var _ = Describe("Cluster", func() {
 					PodSubnet:           "10.12.0.0/14",
 					ServiceSubnet:       "100.3.0.0/16",
 					DNSDomain:           config.ClusterNameBase + strconv.Itoa(3) + ".local",
-					KubeAdminAPIVersion: "kubeadm.k8s.io/v1beta1",
+					KubeAdminAPIVersion: "kubeadm.k8s.io/v1beta2",
 					NumWorkers:          config.NumWorkers,
 					KubeConfigFilePath:  filepath.Join(usr.HomeDir, ".kube", "kind-config-"+config.ClusterNameBase+strconv.Itoa(3)),
 				},
