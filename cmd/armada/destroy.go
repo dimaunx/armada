@@ -9,6 +9,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	kind "sigs.k8s.io/kind/pkg/cluster"
+	kindcmd "sigs.k8s.io/kind/pkg/cmd"
 )
 
 // DestroyFlagpole flags for destroy command
@@ -24,12 +25,22 @@ func DestroyCmd() *cobra.Command {
 		Short: "Destroys e2e environment",
 		Long:  "Destroys multiple kind clusters",
 	}
-	cmd.AddCommand(DestroyClustersCommand())
+
+	customFormatter := new(log.TextFormatter)
+	customFormatter.TimestampFormat = "2006-01-02 15:04:05"
+	log.SetFormatter(customFormatter)
+	customFormatter.FullTimestamp = true
+
+	provider := kind.NewProvider(
+		kind.ProviderWithLogger(kindcmd.NewLogger()),
+	)
+
+	cmd.AddCommand(DestroyClustersCommand(provider))
 	return cmd
 }
 
 // DestroyClustersCommand returns a new cobra.Command under destroy command for armada
-func DestroyClustersCommand() *cobra.Command {
+func DestroyClustersCommand(provider *kind.Provider) *cobra.Command {
 	flags := &DestroyFlagpole{}
 	cmd := &cobra.Command{
 		Args:  cobra.NoArgs,
@@ -38,19 +49,14 @@ func DestroyClustersCommand() *cobra.Command {
 		Long:  "Destroys clusters",
 		RunE: func(cmd *cobra.Command, args []string) error {
 
-			customFormatter := new(log.TextFormatter)
-			customFormatter.TimestampFormat = "2006-01-02 15:04:05"
-			log.SetFormatter(customFormatter)
-			customFormatter.FullTimestamp = true
-
 			if len(flags.Clusters) > 0 {
 				for _, clName := range flags.Clusters {
-					known, err := kind.IsKnown(clName)
+					known, err := cluster.IsKnown(clName, provider)
 					if err != nil {
 						log.Fatalf("%s: %v", clName, err)
 					}
 					if known {
-						err := cluster.Destroy(clName)
+						err := cluster.Destroy(clName, provider)
 						if err != nil {
 							log.Fatalf("%s: %v", clName, err)
 						}
@@ -66,7 +72,7 @@ func DestroyClustersCommand() *cobra.Command {
 
 				for _, file := range configFiles {
 					clName := strings.FieldsFunc(file.Name(), func(r rune) bool { return strings.ContainsRune(" -.", r) })[2]
-					err := cluster.Destroy(clName)
+					err := cluster.Destroy(clName, provider)
 					if err != nil {
 						log.Fatalf("%s: %v", clName, err)
 					}

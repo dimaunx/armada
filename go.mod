@@ -8,7 +8,7 @@ require (
 	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/docker v1.13.1
 	github.com/docker/go-connections v0.4.0 // indirect
-	github.com/gernest/wow v0.1.0
+	github.com/gernest/wow v0.1.0 // indirect
 	github.com/gobuffalo/packr/v2 v2.7.1
 	github.com/imdario/mergo v0.3.8 // indirect
 	github.com/onsi/ginkgo v1.10.3
@@ -17,12 +17,12 @@ require (
 	github.com/pkg/errors v0.8.1
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/cobra v0.0.5
-	gopkg.in/yaml.v2 v2.2.4
+	gopkg.in/yaml.v2 v2.2.5
 	k8s.io/api v0.0.0-20191107030003-665c8a257c1a
 	k8s.io/apiextensions-apiserver v0.0.0-20191107191557-8263dce1d769
 	k8s.io/apimachinery v0.0.0-20191107105744-2c7f8d2b0fd8
 	k8s.io/client-go v11.0.0+incompatible
-	sigs.k8s.io/kind v0.5.1
+	sigs.k8s.io/kind v0.6.0
 )
 
 // pinned 1.15.0

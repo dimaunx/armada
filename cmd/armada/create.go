@@ -15,6 +15,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	kind "sigs.k8s.io/kind/pkg/cluster"
+	kindcmd "sigs.k8s.io/kind/pkg/cmd"
 )
 
 // CreateCmd returns a new cobra.Command under the root command for armada
@@ -31,12 +32,16 @@ func CreateCmd() *cobra.Command {
 	log.SetFormatter(customFormatter)
 	customFormatter.FullTimestamp = true
 
-	cmd.AddCommand(CreateClustersCommand())
+	provider := kind.NewProvider(
+		kind.ProviderWithLogger(kindcmd.NewLogger()),
+	)
+
+	cmd.AddCommand(CreateClustersCommand(provider))
 	return cmd
 }
 
 // CreateClustersCommand returns a new cobra.Command under create command for armada
-func CreateClustersCommand() *cobra.Command {
+func CreateClustersCommand(provider *kind.Provider) *cobra.Command {
 	flags := &config.Flagpole{}
 	cmd := &cobra.Command{
 		Args:  cobra.NoArgs,
@@ -47,15 +52,14 @@ func CreateClustersCommand() *cobra.Command {
 
 			if flags.Debug {
 				log.SetLevel(log.DebugLevel)
-				log.SetReportCaller(true)
+				//log.SetReportCaller(true)
 			}
 
-			box := packr.New("configs", "../../configs")
-
 			var clusters []*config.Cluster
+			box := packr.New("configs", "../../configs")
 			for i := 1; i <= flags.NumClusters; i++ {
 				clName := config.ClusterNameBase + strconv.Itoa(i)
-				known, err := kind.IsKnown(clName)
+				known, err := cluster.IsKnown(clName, provider)
 				if err != nil {
 					log.Fatalf("%s: %v", clName, err)
 				}
@@ -74,7 +78,8 @@ func CreateClustersCommand() *cobra.Command {
 			wg.Add(len(clusters))
 			for _, cl := range clusters {
 				go func(cl *config.Cluster) {
-					err := cluster.Create(cl, flags, box, &wg)
+
+					err := cluster.Create(cl, flags, provider, box, &wg)
 					if err != nil {
 						defer wg.Done()
 						log.Fatalf("%s: %s", cl.Name, err)
@@ -102,9 +107,11 @@ func CreateClustersCommand() *cobra.Command {
 				log.Fatal(err)
 			}
 
+			provider := kind.NewProvider()
+
 			for _, file := range files {
 				clName := strings.FieldsFunc(file.Name(), func(r rune) bool { return strings.ContainsRune(" -.", r) })[2]
-				known, err := kind.IsKnown(clName)
+				known, err := cluster.IsKnown(clName, provider)
 				if err != nil {
 					log.Error(err)
 				}
@@ -123,13 +130,13 @@ func CreateClustersCommand() *cobra.Command {
 						log.Error(err)
 					}
 
-					err = cluster.PrepareKubeConfig(clName, kindKubeFilePath, masterIP)
+					err = cluster.PrepareKubeConfigs(clName, kindKubeFilePath, masterIP)
 					if err != nil {
 						log.Error(err)
 					}
 				}
 			}
-			log.Infof("✔ Kubeconfigs: export KUBECONFIG=$(echo ./output/kind-config/local-dev/kind-config-cl{1..%v} | sed 's/ /:/g')", flags.NumClusters)
+			log.Infof("✔ Kubeconfigs: export KUBECONFIG=$(echo ./output/kind-config/local-dev/kind-config-%s{1..%v} | sed 's/ /:/g')", config.ClusterNameBase, flags.NumClusters)
 		},
 	}
 	cmd.Flags().StringVarP(&flags.ImageName, "image", "i", "", "node docker image to use for booting the cluster")

@@ -32,7 +32,7 @@ const (
 	ContainerKubeConfigDir = "output/kind-config/container"
 
 	// WaitDurationResources is a default timeout for waiter functions
-	WaitDurationResources = time.Duration(5) * time.Minute
+	WaitDurationResources = time.Duration(10) * time.Minute
 
 	// KubeAdminAPIVersion is a default version used by in kind configs
 	KubeAdminAPIVersion = "kubeadm.k8s.io/v1beta2"
@@ -60,6 +60,9 @@ type Cluster struct {
 
 	// NumWorkers is the number of worker nodes
 	NumWorkers int
+
+	// KubeConfigFilePath is the destination where kind will generate the original kubeconfig file
+	KubeConfigFilePath string
 }
 
 // Flagpole is a list of cli flags for create clusters command

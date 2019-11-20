@@ -20,12 +20,6 @@ extends its functionality with automation to create clusters tailored for multi 
 make build
 ```
 
-## Build in docker.
-
-```bash
-make docker-run ARGS="make build"
-```
-
 The **armada** binary will be placed under local **./bin** directory.
 
 ## Create clusters
@@ -60,10 +54,10 @@ Create a total of four clusters, 2 with weave, one with flannel and one with cal
 ./armada create clusters -n 4 --calico
 ```
 
-Default kubernetes node image is kindest/node:v1.15.3. To use different image use **-i** or **--image** flag. This command will create three clusters with flannel cni and kubernetes 1.14.6.
+Default kubernetes node image is kindest/node:v1.16.3. To use different image use **-i** or **--image** flag. This command will create three clusters with flannel cni and kubernetes 1.15.6.
 
 ```bash
-./armada create clusters -n 3 --flannel --image kindest/node:v1.14.6
+./armada create clusters -n 3 --flannel --image kindest/node:v1.15.6
 ```
 
 Full list of supported images can be found on [kind release page].
@@ -71,9 +65,9 @@ Full list of supported images can be found on [kind release page].
 Example of running four clusters with multiple k8s versions and different cni plugins.
 
 ```bash
-./armada create clusters -n 2 --weave  # 2 clusters with weave, k8s version 1.15.3
-./armada create clusters -n 3 --flannel --image kindest/node:v1.14.6 # one clusters with flannel cni, k8s version 1.14.6
-./armada create clusters -n 4 --calico --image kindest/node:v1.13.10 # one clusters with calico cni, k8s version 1.13.10
+./armada create clusters -n 2 --weave  # 2 clusters with weave, k8s version 1.16.3
+./armada create clusters -n 3 --flannel --image kindest/node:v1.15.6 # one clusters with flannel cni, k8s version 1.15.6
+./armada create clusters -n 4 --calico --image kindest/node:v1.14.9 # one clusters with calico cni, k8s version 1.14.9
 ```
 
 Create clusters command full usage.
@@ -117,5 +111,5 @@ Destroy specific clusters
 [docker]: https://docs.docker.com/install/
 [$GOPATH configured]: https://github.com/golang/go/wiki/SettingGOPATH
 [Releases]: https://github.com/dimaunx/armada/releases/
-[kind release page]: https://github.com/kubernetes-sigs/kind/releases/tag/v0.5.0
+[kind release page]: https://github.com/kubernetes-sigs/kind/releases/tag/v0.6.0
 [kind]: https://github.com/kubernetes-sigs/kind
