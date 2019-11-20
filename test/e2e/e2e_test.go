@@ -12,16 +12,15 @@ import (
 	dockertypes "github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
 	dockerclient "github.com/docker/docker/client"
-
-	"github.com/gobuffalo/packr/v2"
+	log "github.com/sirupsen/logrus"
+	kind "sigs.k8s.io/kind/pkg/cluster"
 
 	"github.com/dimaunx/armada/cmd/armada"
 	"github.com/dimaunx/armada/pkg/cluster"
 	"github.com/dimaunx/armada/pkg/config"
+	"github.com/gobuffalo/packr/v2"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	log "github.com/sirupsen/logrus"
-	kind "sigs.k8s.io/kind/pkg/cluster"
 )
 
 func CreateEnvironment(flags *config.Flagpole) ([]*config.Cluster, error) {
@@ -88,10 +87,9 @@ var _ = Describe("Cluster", func() {
 		_ = os.RemoveAll("./output")
 	})
 	Context("e2e: Cluster creation", func() {
-		It("Should create 2 clusters with flannel", func() {
+		It("Should create 2 clusters with kindnet and overlapping cidrs", func() {
 			flags := config.Flagpole{
 				NumClusters: 2,
-				Flannel:     true,
 			}
 
 			clusters, err := CreateEnvironment(&flags)
@@ -100,19 +98,19 @@ var _ = Describe("Cluster", func() {
 			Expect(len(clusters)).Should(Equal(2))
 			Expect(clusters).Should(Equal([]*config.Cluster{
 				{
-					Cni:                 "flannel",
+					Cni:                 "kindnet",
 					Name:                config.ClusterNameBase + strconv.Itoa(1),
-					PodSubnet:           "10.4.0.0/14",
-					ServiceSubnet:       "100.1.0.0/16",
+					PodSubnet:           "10.0.0.0/14",
+					ServiceSubnet:       "100.0.0.0/16",
 					DNSDomain:           config.ClusterNameBase + strconv.Itoa(1) + ".local",
 					KubeAdminAPIVersion: config.KubeAdminAPIVersion,
 					NumWorkers:          config.NumWorkers,
 				},
 				{
-					Cni:                 "flannel",
+					Cni:                 "kindnet",
 					Name:                config.ClusterNameBase + strconv.Itoa(2),
-					PodSubnet:           "10.8.0.0/14",
-					ServiceSubnet:       "100.2.0.0/16",
+					PodSubnet:           "10.0.0.0/14",
+					ServiceSubnet:       "100.0.0.0/16",
 					DNSDomain:           config.ClusterNameBase + strconv.Itoa(2) + ".local",
 					KubeAdminAPIVersion: config.KubeAdminAPIVersion,
 					NumWorkers:          config.NumWorkers,
@@ -157,9 +155,31 @@ var _ = Describe("Cluster", func() {
 				},
 			}))
 		})
-		It("Should not create a new cluster", func() {
+		It("Should create a fourth clusters with calico", func() {
 			flags := config.Flagpole{
 				NumClusters: 3,
+				Calico:      true,
+			}
+
+			clusters, err := CreateEnvironment(&flags)
+			Ω(err).ShouldNot(HaveOccurred())
+
+			Expect(len(clusters)).Should(Equal(1))
+			Expect(clusters).Should(Equal([]*config.Cluster{
+				{
+					Cni:                 "calico",
+					Name:                config.ClusterNameBase + strconv.Itoa(4),
+					PodSubnet:           "10.16.0.0/14",
+					ServiceSubnet:       "100.4.0.0/16",
+					DNSDomain:           config.ClusterNameBase + strconv.Itoa(4) + ".local",
+					KubeAdminAPIVersion: "kubeadm.k8s.io/v1beta2",
+					NumWorkers:          config.NumWorkers,
+				},
+			}))
+		})
+		It("Should not create a new cluster", func() {
+			flags := config.Flagpole{
+				NumClusters: 4,
 			}
 
 			for i := 1; i <= flags.NumClusters; i++ {
@@ -195,10 +215,13 @@ var _ = Describe("Cluster", func() {
 			Ω(err).ShouldNot(HaveOccurred())
 			cl3Status, err := kind.IsKnown(config.ClusterNameBase + strconv.Itoa(3))
 			Ω(err).ShouldNot(HaveOccurred())
+			cl4Status, err := kind.IsKnown(config.ClusterNameBase + strconv.Itoa(4))
+			Ω(err).ShouldNot(HaveOccurred())
 
 			Expect(cl1Status).Should(BeFalse())
 			Expect(cl2Status).Should(BeTrue())
 			Expect(cl3Status).Should(BeFalse())
+			Expect(cl4Status).Should(BeTrue())
 		})
 		It("Should destroy all remaining clusters", func() {
 			configFiles, err := ioutil.ReadDir(config.KindConfigDir)
@@ -216,10 +239,13 @@ var _ = Describe("Cluster", func() {
 			Ω(err).ShouldNot(HaveOccurred())
 			cl3Status, err := kind.IsKnown(config.ClusterNameBase + strconv.Itoa(3))
 			Ω(err).ShouldNot(HaveOccurred())
+			cl4Status, err := kind.IsKnown(config.ClusterNameBase + strconv.Itoa(4))
+			Ω(err).ShouldNot(HaveOccurred())
 
 			Expect(cl1Status).Should(BeFalse())
 			Expect(cl2Status).Should(BeFalse())
 			Expect(cl3Status).Should(BeFalse())
+			Expect(cl4Status).Should(BeFalse())
 		})
 	})
 })

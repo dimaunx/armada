@@ -2,17 +2,17 @@ package cluster
 
 import (
 	"context"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
-
-	dockertypes "github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/filters"
-	dockerclient "github.com/docker/docker/client"
 
 	"github.com/dimaunx/armada/pkg/config"
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/filters"
+	dockerclient "github.com/docker/docker/client"
 	"github.com/gobuffalo/packr/v2"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -256,43 +256,7 @@ var _ = Describe("Utils", func() {
 		})
 	})
 	Context("component: Containers", func() {
-		BeforeEach(func() {
-
-			flags := config.Flagpole{
-				Wait:        0,
-				NumClusters: 1,
-			}
-
-			box := packr.New("configs", "../../configs")
-
-			cl := config.Cluster{
-				Cni:                 "kindnet",
-				Name:                "cl2",
-				PodSubnet:           "10.8.0.0/14",
-				ServiceSubnet:       "100.2.0.0/14",
-				DNSDomain:           "cl2.local",
-				KubeAdminAPIVersion: "kubeadm.k8s.io/v1beta2",
-				NumWorkers:          0,
-			}
-
-			var wg sync.WaitGroup
-			wg.Add(1)
-			err := Create(&cl, &flags, box, &wg)
-			Ω(err).ShouldNot(HaveOccurred())
-			wg.Wait()
-		})
 		AfterEach(func() {
-			configFiles, err := ioutil.ReadDir(config.KindConfigDir)
-			Ω(err).ShouldNot(HaveOccurred())
-
-			for _, file := range configFiles {
-				clName := strings.FieldsFunc(file.Name(), func(r rune) bool { return strings.ContainsRune(" -.", r) })[2]
-				err := Destroy(clName)
-				Ω(err).ShouldNot(HaveOccurred())
-			}
-		})
-		It("Should return the correct ip of a master node by name", func() {
-
 			ctx := context.Background()
 			dockerCli, err := dockerclient.NewEnvClient()
 			Ω(err).ShouldNot(HaveOccurred())
@@ -300,7 +264,41 @@ var _ = Describe("Utils", func() {
 			containerFilter := filters.NewArgs()
 			containerFilter.Add("name", "cl2-control-plane")
 
-			containers, err := dockerCli.ContainerList(ctx, dockertypes.ContainerListOptions{
+			containers, err := dockerCli.ContainerList(ctx, types.ContainerListOptions{
+				Filters: containerFilter,
+				Limit:   1,
+			})
+			Ω(err).ShouldNot(HaveOccurred())
+
+			err = dockerCli.ContainerRemove(ctx, containers[0].ID, types.ContainerRemoveOptions{
+				Force: true,
+			})
+			Ω(err).ShouldNot(HaveOccurred())
+		})
+		It("Should return the correct ip of a master node by name", func() {
+
+			ctx := context.Background()
+			dockerCli, err := dockerclient.NewEnvClient()
+			Ω(err).ShouldNot(HaveOccurred())
+
+			reader, err := dockerCli.ImagePull(ctx, "docker.io/library/alpine", types.ImagePullOptions{})
+			Ω(err).ShouldNot(HaveOccurred())
+			_, err = io.Copy(os.Stdout, reader)
+			Ω(err).ShouldNot(HaveOccurred())
+
+			resp, err := dockerCli.ContainerCreate(ctx, &container.Config{
+				Image: "alpine",
+				Cmd:   []string{"/bin/sh"},
+			}, nil, nil, "cl2-control-plane")
+			Ω(err).ShouldNot(HaveOccurred())
+
+			err = dockerCli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{})
+			Ω(err).ShouldNot(HaveOccurred())
+
+			containerFilter := filters.NewArgs()
+			containerFilter.Add("name", "cl2-control-plane")
+
+			containers, err := dockerCli.ContainerList(ctx, types.ContainerListOptions{
 				Filters: containerFilter,
 				Limit:   1,
 			})
