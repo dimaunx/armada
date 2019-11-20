@@ -133,12 +133,12 @@ var _ = Describe("Cluster", func() {
 				},
 			}))
 		})
-		It("Should create a third cluster with weave, kindest/node:v1.14.9 and tiller", func() {
+		It("Should create a third cluster with weave, kindest/node:v1.15.6 and tiller", func() {
 			flags := config.Flagpole{
 				NumClusters: 3,
 				Weave:       true,
 				Tiller:      true,
-				ImageName:   "kindest/node:v1.14.9",
+				ImageName:   "kindest/node:v1.15.6",
 				Debug:       true,
 			}
 
