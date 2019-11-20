@@ -56,6 +56,17 @@ build: $(PACKR) validate
 	CGO_ENABLED=0 $(GOCMD) build $(LDFLAGS) -o $(GOBASE)/$(OUTPUTDIR)/$(PROJECTNAME)
 .PHONY: build
 
+docker-build-image:
+	docker build -t $(PROJECTNAME):$(VERSION) --build-arg PROJECTNAME=$(PROJECTNAME) --build-arg OUTPUTDIR=$(OUTPUTDIR) .
+	docker create --name $(PROJECTNAME)-$(VERSION)-builder $(PROJECTNAME):$(VERSION) /bin/sh
+.PHONY: docker-build-image
+
+docker-build: docker-build-image
+	$(eval CID=$(shell docker ps -aqf "name=$(PROJECTNAME)-$(VERSION)-builder"))
+	docker cp $(CID):/$(PROJECTNAME)/$(OUTPUTDIR) .
+	docker rm -f $(CID)
+.PHONY: docker-build
+
 docker-run:
 	${MAKE} docker ARGS="${ARGS}" || { echo "failure!"; ${MAKE} fix-perm; exit 1; };
 .PHONY: docker-run

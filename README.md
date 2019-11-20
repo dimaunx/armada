@@ -20,6 +20,12 @@ extends its functionality with automation to create clusters tailored for multi 
 make build
 ```
 
+## Build in docker.
+
+```bash
+make docker-build
+```
+
 The **armada** binary will be placed under local **./bin** directory.
 
 ## Create clusters
