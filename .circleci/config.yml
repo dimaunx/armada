@@ -1,9 +1,8 @@
 version: 2
 jobs:
   build:
-    docker:
-      - image: circleci/golang:1.12
-    working_directory: /go/src/github.com/{{ORG_NAME}}/{{REPO_NAME}}
+    machine:
+      image: ubuntu-1604:201903-01
     steps:
       - checkout
       - run: make build
