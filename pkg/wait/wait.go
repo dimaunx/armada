@@ -26,7 +26,7 @@ func ForPodsRunning(clName string, c kubernetes.Interface, namespace, selector s
 			log.Infof("✔ All pods with label: %q are running for %s.", selector, clName)
 			cancel()
 		} else {
-			log.Debugf("Still waiting for pods. label: %q, namespace: %q, replicas: %v, duration: %v, cluster: %s.", selector, namespace, replicas, config.WaitDurationResources, clName)
+			log.Debugf("Still waiting for pods. label: %q, namespace: %q, replicas: %v, cluster: %s.", selector, namespace, replicas, clName)
 		}
 	}, 10*time.Second, podsContext.Done())
 
@@ -49,7 +49,7 @@ func ForDeploymentReady(clName string, c kubernetes.Interface, namespace, deploy
 				log.Infof("✔ %s successfully deployed to %s, ready replicas: %v", deploymentName, clName, deployment.Status.ReadyReplicas)
 				cancel()
 			} else {
-				log.Debugf("Still waiting for %s deployment for %s, ready replicas: %v", deploymentName, clName, deployment.Status.ReadyReplicas)
+				log.Infof("Still waiting for %s deployment for %s, ready replicas: %v", deploymentName, clName, deployment.Status.ReadyReplicas)
 			}
 		} else {
 			log.Debugf("Still waiting for %s deployment roll out %s...", deploymentName, clName)
@@ -74,7 +74,7 @@ func ForDaemonSetReady(clName string, c kubernetes.Interface, namespace, daemonS
 				log.Infof("✔ %s successfully rolled out to %s, ready replicas: %v", daemonSetName, clName, daemonSet.Status.NumberReady)
 				cancel()
 			} else {
-				log.Debugf("Still waiting for %s daemon set roll out for %s, ready replicas: %v", daemonSetName, clName, daemonSet.Status.NumberReady)
+				log.Infof("Still waiting for %s daemon set roll out for %s, ready replicas: %v", daemonSetName, clName, daemonSet.Status.NumberReady)
 			}
 		} else {
 			log.Debugf("Still waiting for %s daemon set roll out %s...", daemonSetName, clName)

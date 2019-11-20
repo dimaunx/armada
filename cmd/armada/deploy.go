@@ -77,7 +77,7 @@ func DeployNetshootCommand() *cobra.Command {
 			wg.Add(len(configFiles))
 			for _, file := range configFiles {
 				go func(file os.FileInfo) {
-					clName := strings.Split(file.Name(), "-")[0]
+					clName := strings.FieldsFunc(file.Name(), func(r rune) bool { return strings.ContainsRune(" -.", r) })[2]
 					kubeConfigFilePath, err := cluster.GetKubeConfigPath(clName)
 					if err != nil {
 						log.Fatalf("%s %s", clName, err)
@@ -138,32 +138,30 @@ func DeployNginxDemoCommand() *cobra.Command {
 			wg.Add(len(configFiles))
 			for _, file := range configFiles {
 				go func(file os.FileInfo) {
-					clName := strings.Split(file.Name(), "-")[0]
-					cl := &config.Cluster{Name: clName}
-
-					kubeConfigFilePath, err := cluster.GetKubeConfigPath(cl.Name)
+					clName := strings.FieldsFunc(file.Name(), func(r rune) bool { return strings.ContainsRune(" -.", r) })[2]
+					kubeConfigFilePath, err := cluster.GetKubeConfigPath(clName)
 					if err != nil {
-						log.Fatalf("%s %s", cl.Name, err)
+						log.Fatalf("%s %s", clName, err)
 					}
 
 					kconfig, err := clientcmd.BuildConfigFromFlags("", kubeConfigFilePath)
 					if err != nil {
-						log.Fatalf("%s %s", cl.Name, err)
+						log.Fatalf("%s %s", clName, err)
 					}
 
 					clientSet, err := kubernetes.NewForConfig(kconfig)
 					if err != nil {
-						log.Fatalf("%s %s", cl.Name, err)
+						log.Fatalf("%s %s", clName, err)
 					}
 
-					err = deploy.CreateResources(cl.Name, clientSet, nginxDeploymentFile.String(), "Nginx")
+					err = deploy.CreateResources(clName, clientSet, nginxDeploymentFile.String(), "Nginx")
 					if err != nil {
-						log.Fatalf("%s %s", cl.Name, err)
+						log.Fatalf("%s %s", clName, err)
 					}
 
-					err = wait.ForDaemonSetReady(cl.Name, clientSet, "default", "nginx-demo")
+					err = wait.ForDaemonSetReady(clName, clientSet, "default", "nginx-demo")
 					if err != nil {
-						log.Fatalf("%s %s", cl.Name, err)
+						log.Fatalf("%s %s", clName, err)
 					}
 					wg.Done()
 				}(file)

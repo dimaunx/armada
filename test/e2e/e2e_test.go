@@ -2,7 +2,11 @@ package e2e
 
 import (
 	"context"
+	"github.com/dimaunx/armada/pkg/deploy"
+	"github.com/dimaunx/armada/pkg/wait"
 	"io/ioutil"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -91,7 +95,7 @@ var _ = Describe("Cluster", func() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	Context("e2e: Cluster creation", func() {
+	Context("e2e: Cluster creation and deployment", func() {
 		It("Should create 2 clusters with flannel and overlapping cidrs", func() {
 			flags := config.Flagpole{
 				NumClusters: 2,
@@ -174,6 +178,81 @@ var _ = Describe("Cluster", func() {
 					KubeConfigFilePath:  filepath.Join(usr.HomeDir, ".kube", "kind-config-"+config.ClusterNameBase+strconv.Itoa(3)),
 				},
 			}))
+		})
+		It("Should deploy nginx-demo to all 3 clusters", func() {
+			box := packr.New("configs", "../../configs")
+			nginxDeploymentFile, err := box.Resolve("debug/nginx-demo-daemonset.yaml")
+			Ω(err).ShouldNot(HaveOccurred())
+
+			configFiles, err := ioutil.ReadDir(config.KindConfigDir)
+			Ω(err).ShouldNot(HaveOccurred())
+
+			var activeDeployments []string
+			var wg sync.WaitGroup
+			wg.Add(len(configFiles))
+			for _, file := range configFiles {
+				go func(file os.FileInfo) {
+					clName := strings.FieldsFunc(file.Name(), func(r rune) bool { return strings.ContainsRune(" -.", r) })[2]
+					kubeConfigFilePath, err := cluster.GetKubeConfigPath(clName)
+					Ω(err).ShouldNot(HaveOccurred())
+
+					kconfig, err := clientcmd.BuildConfigFromFlags("", kubeConfigFilePath)
+					Ω(err).ShouldNot(HaveOccurred())
+
+					clientSet, err := kubernetes.NewForConfig(kconfig)
+					Ω(err).ShouldNot(HaveOccurred())
+
+					err = deploy.CreateResources(clName, clientSet, nginxDeploymentFile.String(), "Nginx")
+					Ω(err).ShouldNot(HaveOccurred())
+
+					err = wait.ForDaemonSetReady(clName, clientSet, "default", "nginx-demo")
+					Ω(err).ShouldNot(HaveOccurred())
+					activeDeployments = append(activeDeployments, clName)
+					wg.Done()
+				}(file)
+			}
+			wg.Wait()
+
+			Expect(len(configFiles)).Should(Equal(3))
+			Expect(len(activeDeployments)).Should(Equal(3))
+
+		})
+		It("Should deploy netshoot to all 3 clusters", func() {
+			box := packr.New("configs", "../../configs")
+			netshootDeploymentFile, err := box.Resolve("debug/netshoot-daemonset.yaml")
+			Ω(err).ShouldNot(HaveOccurred())
+
+			configFiles, err := ioutil.ReadDir(config.KindConfigDir)
+			Ω(err).ShouldNot(HaveOccurred())
+
+			var activeDeployments []string
+			var wg sync.WaitGroup
+			wg.Add(len(configFiles))
+			for _, file := range configFiles {
+				go func(file os.FileInfo) {
+					clName := strings.FieldsFunc(file.Name(), func(r rune) bool { return strings.ContainsRune(" -.", r) })[2]
+					kubeConfigFilePath, err := cluster.GetKubeConfigPath(clName)
+					Ω(err).ShouldNot(HaveOccurred())
+
+					kconfig, err := clientcmd.BuildConfigFromFlags("", kubeConfigFilePath)
+					Ω(err).ShouldNot(HaveOccurred())
+
+					clientSet, err := kubernetes.NewForConfig(kconfig)
+					Ω(err).ShouldNot(HaveOccurred())
+
+					err = deploy.CreateResources(clName, clientSet, netshootDeploymentFile.String(), "Netshoot")
+					Ω(err).ShouldNot(HaveOccurred())
+
+					err = wait.ForDaemonSetReady(clName, clientSet, "default", "netshoot")
+					Ω(err).ShouldNot(HaveOccurred())
+					activeDeployments = append(activeDeployments, clName)
+					wg.Done()
+				}(file)
+			}
+			wg.Wait()
+
+			Expect(len(configFiles)).Should(Equal(3))
+			Expect(len(activeDeployments)).Should(Equal(3))
 		})
 		It("Should not create a new cluster", func() {
 			flags := config.Flagpole{
