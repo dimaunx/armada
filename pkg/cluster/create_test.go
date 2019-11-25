@@ -42,7 +42,9 @@ var _ = Describe("Create cluster", func() {
 	})
 	Context("unit: Default flags", func() {
 		It("Should populate config with correct default values", func() {
-			flags := config.CreateFlagpole{}
+			flags := config.CreateFlagpole{
+				Kindnet: true,
+			}
 			usr, err := user.Current()
 			Ω(err).ShouldNot(HaveOccurred())
 			got, err := PopulateClusterConfig(1, &flags)
@@ -63,6 +65,7 @@ var _ = Describe("Create cluster", func() {
 		It("Should set KubeAdminAPIVersion to kubeadm.k8s.io/v1beta1", func() {
 			flags := config.CreateFlagpole{
 				ImageName: "kindest/node:v1.11.1",
+				Kindnet:   true,
 			}
 			usr, err := user.Current()
 			Ω(err).ShouldNot(HaveOccurred())
@@ -82,6 +85,7 @@ var _ = Describe("Create cluster", func() {
 		It("Should set KubeAdminAPIVersion to kubeadm.k8s.io/v1beta2", func() {
 			flags := config.CreateFlagpole{
 				ImageName: "kindest/node:v1.16.3",
+				Kindnet:   true,
 			}
 			usr, err := user.Current()
 			Ω(err).ShouldNot(HaveOccurred())
@@ -101,6 +105,7 @@ var _ = Describe("Create cluster", func() {
 		It("Should set KubeAdminAPIVersion to kubeadm.k8s.io/v1beta2 if image name is empty", func() {
 			flags := config.CreateFlagpole{
 				ImageName: "",
+				Kindnet:   true,
 			}
 			usr, err := user.Current()
 			Ω(err).ShouldNot(HaveOccurred())
@@ -317,6 +322,7 @@ var _ = Describe("Create cluster", func() {
 
 			flags := config.CreateFlagpole{
 				ImageName: "test/test:v1.13.2",
+				Kindnet:   true,
 			}
 
 			currentDir, err := os.Getwd()
@@ -339,7 +345,7 @@ var _ = Describe("Create cluster", func() {
 			actual, err := ioutil.ReadFile(configPath)
 			Ω(err).ShouldNot(HaveOccurred())
 
-			Expect(actual).Should(Equal(golden))
+			Expect(string(actual)).Should(Equal(string(golden)))
 
 			_ = os.RemoveAll(configPath)
 		})
@@ -347,6 +353,7 @@ var _ = Describe("Create cluster", func() {
 
 			flags := config.CreateFlagpole{
 				ImageName: "test/test:v1.16.2",
+				Kindnet:   true,
 			}
 
 			currentDir, err := os.Getwd()

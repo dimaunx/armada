@@ -11,7 +11,7 @@ const (
 	PodCidrBase = "10.0.0.0"
 
 	// PodCidrMask is the default mask for pod subnet
-	PodCidrMask = "/16"
+	PodCidrMask = "/14"
 
 	// ServiceCidrBase the default starting service cidr for all the clusters
 	ServiceCidrBase = "100.0.0.0"
