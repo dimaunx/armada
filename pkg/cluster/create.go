@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"text/template"
 
 	"github.com/dimaunx/armada/pkg/wait"
 
@@ -27,7 +28,7 @@ import (
 )
 
 // Create creates cluster with kind
-func Create(cl *config.Cluster, flags *config.Flagpole, provider *kind.Provider, box *packr.Box, wg *sync.WaitGroup) error {
+func Create(cl *config.Cluster, flags *config.CreateFlagpole, provider *kind.Provider, box *packr.Box, wg *sync.WaitGroup) error {
 	currentDir, err := os.Getwd()
 	if err != nil {
 		return err
@@ -58,8 +59,8 @@ func Create(cl *config.Cluster, flags *config.Flagpole, provider *kind.Provider,
 		kind.CreateWithKubeconfigPath(cl.KubeConfigFilePath),
 		kind.CreateWithRetain(flags.Retain),
 		kind.CreateWithWaitForReady(flags.Wait),
-		kind.CreateWithDisplayUsage(true),
-		kind.CreateWithDisplaySalutation(true),
+		kind.CreateWithDisplayUsage(false),
+		kind.CreateWithDisplaySalutation(false),
 	); err != nil {
 		if errs := kinderrors.Errors(err); errs != nil {
 			for _, problem := range errs {
@@ -74,7 +75,7 @@ func Create(cl *config.Cluster, flags *config.Flagpole, provider *kind.Provider,
 }
 
 // PopulateClusterConfig return a desired cluster object
-func PopulateClusterConfig(i int, flags *config.Flagpole) (*config.Cluster, error) {
+func PopulateClusterConfig(i int, flags *config.CreateFlagpole) (*config.Cluster, error) {
 
 	usr, err := user.Current()
 	if err != nil {
@@ -111,7 +112,7 @@ func PopulateClusterConfig(i int, flags *config.Flagpole) (*config.Cluster, erro
 	} else if flags.Flannel {
 		cl.Cni = "flannel"
 		flags.Wait = 0
-	} else {
+	} else if flags.Kindnet {
 		cl.Cni = "kindnet"
 	}
 
@@ -130,8 +131,38 @@ func PopulateClusterConfig(i int, flags *config.Flagpole) (*config.Cluster, erro
 	return cl, nil
 }
 
+// GenerateKindConfig creates kind config file and returns its path
+func GenerateKindConfig(cl *config.Cluster, configDir string, box *packr.Box) (string, error) {
+	kindConfigFileTemplate, err := box.Resolve("tpl/cluster-config.yaml")
+	if err != nil {
+		return "", err
+	}
+
+	t, err := template.New("config").Funcs(template.FuncMap{"iterate": iterate}).Parse(kindConfigFileTemplate.String())
+	if err != nil {
+		return "", err
+	}
+
+	kindConfigFilePath := filepath.Join(configDir, "kind-config-"+cl.Name+".yaml")
+	f, err := os.Create(kindConfigFilePath)
+	if err != nil {
+		return "", err
+	}
+
+	err = t.Execute(f, cl)
+	if err != nil {
+		return "", err
+	}
+
+	if err := f.Close(); err != nil {
+		return "", err
+	}
+	log.Debugf("Cluster config file for %s generated.", cl.Name)
+	return kindConfigFilePath, nil
+}
+
 // FinalizeSetup creates custom environment
-func FinalizeSetup(cl *config.Cluster, flags *config.Flagpole, box *packr.Box, wg *sync.WaitGroup) error {
+func FinalizeSetup(cl *config.Cluster, flags *config.CreateFlagpole, box *packr.Box, wg *sync.WaitGroup) error {
 	masterIP, err := GetMasterDockerIP(cl.Name)
 	if err != nil {
 		return err

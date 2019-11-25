@@ -42,7 +42,7 @@ func CreateCmd() *cobra.Command {
 
 // CreateClustersCommand returns a new cobra.Command under create command for armada
 func CreateClustersCommand(provider *kind.Provider) *cobra.Command {
-	flags := &config.Flagpole{}
+	flags := &config.CreateFlagpole{}
 	cmd := &cobra.Command{
 		Args:  cobra.NoArgs,
 		Use:   "clusters",
@@ -144,6 +144,7 @@ func CreateClustersCommand(provider *kind.Provider) *cobra.Command {
 	cmd.Flags().BoolVarP(&flags.Weave, "weave", "w", false, "deploy with weave")
 	cmd.Flags().BoolVarP(&flags.Tiller, "tiller", "t", false, "deploy with tiller")
 	cmd.Flags().BoolVarP(&flags.Calico, "calico", "c", false, "deploy with calico")
+	cmd.Flags().BoolVarP(&flags.Kindnet, "kindnet", "k", true, "deploy with kindnet default cni")
 	cmd.Flags().BoolVarP(&flags.Flannel, "flannel", "f", false, "deploy with flannel")
 	cmd.Flags().BoolVarP(&flags.Debug, "debug", "v", false, "set log level to debug")
 	cmd.Flags().BoolVarP(&flags.Overlap, "overlap", "o", false, "create clusters with overlapping cidrs")

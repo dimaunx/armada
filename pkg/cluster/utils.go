@@ -179,36 +179,6 @@ func iterate(start, end int) (stream chan int) {
 	return
 }
 
-// GenerateKindConfig creates kind config file and returns its path
-func GenerateKindConfig(cl *config.Cluster, configDir string, box *packr.Box) (string, error) {
-	kindConfigFileTemplate, err := box.Resolve("tpl/cluster-config.yaml")
-	if err != nil {
-		return "", err
-	}
-
-	t, err := template.New("config").Funcs(template.FuncMap{"iterate": iterate}).Parse(kindConfigFileTemplate.String())
-	if err != nil {
-		return "", err
-	}
-
-	kindConfigFilePath := filepath.Join(configDir, "kind-config-"+cl.Name+".yaml")
-	f, err := os.Create(kindConfigFilePath)
-	if err != nil {
-		return "", err
-	}
-
-	err = t.Execute(f, cl)
-	if err != nil {
-		return "", err
-	}
-
-	if err := f.Close(); err != nil {
-		return "", err
-	}
-	log.Debugf("Cluster config file for %s generated.", cl.Name)
-	return kindConfigFilePath, nil
-}
-
 // GenerateCalicoDeploymentFile generates calico deployment file from template
 func GenerateCalicoDeploymentFile(cl *config.Cluster, box *packr.Box) (string, error) {
 	calicoDeploymentTemplate, err := box.Resolve("tpl/calico-daemonset.yaml")

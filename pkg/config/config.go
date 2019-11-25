@@ -11,7 +11,7 @@ const (
 	PodCidrBase = "10.0.0.0"
 
 	// PodCidrMask is the default mask for pod subnet
-	PodCidrMask = "/14"
+	PodCidrMask = "/16"
 
 	// ServiceCidrBase the default starting service cidr for all the clusters
 	ServiceCidrBase = "100.0.0.0"
@@ -65,8 +65,8 @@ type Cluster struct {
 	KubeConfigFilePath string
 }
 
-// Flagpole is a list of cli flags for create clusters command
-type Flagpole struct {
+// CreateFlagpole is a list of cli flags for create clusters command
+type CreateFlagpole struct {
 	// ImageName is the node image used for cluster creation
 	ImageName string
 
@@ -84,6 +84,9 @@ type Flagpole struct {
 
 	// Calico if to install calico cni
 	Calico bool
+
+	// Kindnet if to install kindnet default cni
+	Kindnet bool
 
 	// Debug if to enable debug log level
 	Debug bool

@@ -124,7 +124,7 @@ spec:
                   fieldPath: spec.nodeName
             - name: IPALLOC_RANGE
               value: {{.PodSubnet}}
-          image: 'docker.io/weaveworks/weave-kube:latest'
+          image: 'docker.io/weaveworks/weave-kube:2.6.0'
           readinessProbe:
             httpGet:
               host: 127.0.0.1
@@ -157,7 +157,7 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: spec.nodeName
-          image: 'docker.io/weaveworks/weave-npc:latest'
+          image: 'docker.io/weaveworks/weave-npc:2.6.0'
           resources:
             requests:
               cpu: 10m

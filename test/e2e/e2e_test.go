@@ -31,7 +31,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func CreateEnvironment(flags *config.Flagpole, provider *kind.Provider) ([]*config.Cluster, error) {
+func CreateEnvironment(flags *config.CreateFlagpole, provider *kind.Provider) ([]*config.Cluster, error) {
 	box := packr.New("configs", "../../configs")
 
 	if flags.Debug {
@@ -98,7 +98,7 @@ var _ = Describe("Cluster", func() {
 	}
 	Context("e2e: Cluster creation and deployment", func() {
 		It("Should create 2 clusters with flannel and overlapping cidrs", func() {
-			flags := config.Flagpole{
+			flags := config.CreateFlagpole{
 				NumClusters: 2,
 				Overlap:     true,
 				Flannel:     true,
@@ -139,7 +139,7 @@ var _ = Describe("Cluster", func() {
 			}))
 		})
 		It("Should create a third cluster with weave, kindest/node:v1.15.6 and tiller", func() {
-			flags := config.Flagpole{
+			flags := config.CreateFlagpole{
 				NumClusters: 3,
 				Weave:       true,
 				Tiller:      true,
@@ -256,7 +256,7 @@ var _ = Describe("Cluster", func() {
 			Expect(len(activeDeployments)).Should(Equal(3))
 		})
 		It("Should not create a new cluster", func() {
-			flags := config.Flagpole{
+			flags := config.CreateFlagpole{
 				NumClusters: 3,
 			}
 

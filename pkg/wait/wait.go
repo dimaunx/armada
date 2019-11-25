@@ -54,7 +54,7 @@ func ForDeploymentReady(clName string, c kubernetes.Interface, namespace, deploy
 		} else {
 			log.Debugf("Still waiting for %s deployment roll out %s ...", deploymentName, clName)
 		}
-	}, 30*time.Second, deploymentContext.Done())
+	}, 15*time.Second, deploymentContext.Done())
 	err := deploymentContext.Err()
 	if err != nil && err != context.Canceled {
 		return errors.Wrapf(err, "Error waiting for %s deployment roll out.", deploymentName)
@@ -79,7 +79,7 @@ func ForDaemonSetReady(clName string, c kubernetes.Interface, namespace, daemonS
 		} else {
 			log.Debugf("Still waiting for %s daemon set roll out %s ...", daemonSetName, clName)
 		}
-	}, 30*time.Second, deploymentContext.Done())
+	}, 15*time.Second, deploymentContext.Done())
 	err := deploymentContext.Err()
 	if err != nil && err != context.Canceled {
 		return errors.Wrapf(err, "Error waiting for %s daemon set roll out.", daemonSetName)

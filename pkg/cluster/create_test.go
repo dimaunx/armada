@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gobuffalo/packr/v2"
+
 	"github.com/dimaunx/armada/pkg/config"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -39,8 +41,8 @@ var _ = Describe("Create cluster", func() {
 		_ = os.RemoveAll("./output")
 	})
 	Context("unit: Default flags", func() {
-		It("Should generate config with correct default values", func() {
-			flags := config.Flagpole{}
+		It("Should populate config with correct default values", func() {
+			flags := config.CreateFlagpole{}
 			usr, err := user.Current()
 			Ω(err).ShouldNot(HaveOccurred())
 			got, err := PopulateClusterConfig(1, &flags)
@@ -59,7 +61,7 @@ var _ = Describe("Create cluster", func() {
 	})
 	Context("unit: Custom flags", func() {
 		It("Should set KubeAdminAPIVersion to kubeadm.k8s.io/v1beta1", func() {
-			flags := config.Flagpole{
+			flags := config.CreateFlagpole{
 				ImageName: "kindest/node:v1.11.1",
 			}
 			usr, err := user.Current()
@@ -78,7 +80,7 @@ var _ = Describe("Create cluster", func() {
 			}))
 		})
 		It("Should set KubeAdminAPIVersion to kubeadm.k8s.io/v1beta2", func() {
-			flags := config.Flagpole{
+			flags := config.CreateFlagpole{
 				ImageName: "kindest/node:v1.16.3",
 			}
 			usr, err := user.Current()
@@ -97,7 +99,7 @@ var _ = Describe("Create cluster", func() {
 			}))
 		})
 		It("Should set KubeAdminAPIVersion to kubeadm.k8s.io/v1beta2 if image name is empty", func() {
-			flags := config.Flagpole{
+			flags := config.CreateFlagpole{
 				ImageName: "",
 			}
 			usr, err := user.Current()
@@ -116,7 +118,7 @@ var _ = Describe("Create cluster", func() {
 			}))
 		})
 		It("Should return error with invalid node image name", func() {
-			flags := config.Flagpole{
+			flags := config.CreateFlagpole{
 				ImageName: "kindest/node:1.16.3",
 			}
 			got, err := PopulateClusterConfig(1, &flags)
@@ -125,7 +127,7 @@ var _ = Describe("Create cluster", func() {
 			Expect(err).NotTo(BeNil())
 		})
 		It("Should set Cni to weave", func() {
-			flags := config.Flagpole{
+			flags := config.CreateFlagpole{
 				Weave: true,
 			}
 			usr, err := user.Current()
@@ -144,7 +146,7 @@ var _ = Describe("Create cluster", func() {
 			}))
 		})
 		It("Should set Cni to calico", func() {
-			flags := config.Flagpole{
+			flags := config.CreateFlagpole{
 				Calico: true,
 			}
 			usr, err := user.Current()
@@ -163,7 +165,7 @@ var _ = Describe("Create cluster", func() {
 			}))
 		})
 		It("Should set Cni to flannel", func() {
-			flags := config.Flagpole{
+			flags := config.CreateFlagpole{
 				Flannel: true,
 			}
 			usr, err := user.Current()
@@ -182,7 +184,7 @@ var _ = Describe("Create cluster", func() {
 			}))
 		})
 		It("Should create configs for 2 clusters with flannel and overlapping cidrs", func() {
-			flags := config.Flagpole{
+			flags := config.CreateFlagpole{
 				Flannel:     true,
 				Overlap:     true,
 				NumClusters: 2,
@@ -220,6 +222,156 @@ var _ = Describe("Create cluster", func() {
 					KubeConfigFilePath:  filepath.Join(usr.HomeDir, ".kube", "kind-config-"+config.ClusterNameBase+strconv.Itoa(2)),
 				},
 			}))
+		})
+		It("Should generate correct kind config for default cni", func() {
+			currentDir, err := os.Getwd()
+			Ω(err).ShouldNot(HaveOccurred())
+
+			cl := config.Cluster{
+				Cni:                 "kindnet",
+				Name:                "default",
+				PodSubnet:           "10.4.0.0/14",
+				ServiceSubnet:       "100.1.0.0/16",
+				DNSDomain:           "cl1.local",
+				KubeAdminAPIVersion: "kubeadm.k8s.io/v1beta2",
+				NumWorkers:          2,
+			}
+
+			box := packr.New("configs", "../../configs")
+
+			configDir := filepath.Join(currentDir, "testdata/kind")
+			gf := filepath.Join(configDir, "default_cni.golden")
+			configPath, err := GenerateKindConfig(&cl, configDir, box)
+			Ω(err).ShouldNot(HaveOccurred())
+
+			golden, err := ioutil.ReadFile(gf)
+			Ω(err).ShouldNot(HaveOccurred())
+			actual, err := ioutil.ReadFile(configPath)
+			Ω(err).ShouldNot(HaveOccurred())
+
+			Expect(actual).Should(Equal(golden))
+
+			_ = os.RemoveAll(configPath)
+		})
+		It("Should generate correct kind config for custom cni", func() {
+			currentDir, err := os.Getwd()
+			Ω(err).ShouldNot(HaveOccurred())
+
+			cl := config.Cluster{
+				Cni:                 "weave",
+				Name:                "custom",
+				PodSubnet:           "10.4.0.0/14",
+				ServiceSubnet:       "100.1.0.0/16",
+				DNSDomain:           "cl1.local",
+				KubeAdminAPIVersion: "kubeadm.k8s.io/v1beta2",
+				NumWorkers:          2,
+			}
+
+			box := packr.New("configs", "../../configs")
+
+			configDir := filepath.Join(currentDir, "testdata/kind")
+			gf := filepath.Join(configDir, "custom_cni.golden")
+			configPath, err := GenerateKindConfig(&cl, configDir, box)
+			Ω(err).ShouldNot(HaveOccurred())
+
+			golden, err := ioutil.ReadFile(gf)
+			Ω(err).ShouldNot(HaveOccurred())
+			actual, err := ioutil.ReadFile(configPath)
+			Ω(err).ShouldNot(HaveOccurred())
+
+			Expect(actual).Should(Equal(golden))
+
+			_ = os.RemoveAll(configPath)
+		})
+		It("Should generate correct kind config for cluster with 5 workers and custom cni", func() {
+			currentDir, err := os.Getwd()
+			Ω(err).ShouldNot(HaveOccurred())
+
+			cl := config.Cluster{
+				Cni:                 "flannel",
+				Name:                "custom",
+				PodSubnet:           "10.4.0.0/14",
+				ServiceSubnet:       "100.1.0.0/16",
+				DNSDomain:           "cl1.local",
+				KubeAdminAPIVersion: "kubeadm.k8s.io/v1beta2",
+				NumWorkers:          5,
+			}
+
+			box := packr.New("configs", "../../configs")
+
+			configDir := filepath.Join(currentDir, "testdata/kind")
+			gf := filepath.Join(configDir, "custom_five_workers.golden")
+			configPath, err := GenerateKindConfig(&cl, configDir, box)
+			Ω(err).ShouldNot(HaveOccurred())
+
+			golden, err := ioutil.ReadFile(gf)
+			Ω(err).ShouldNot(HaveOccurred())
+			actual, err := ioutil.ReadFile(configPath)
+			Ω(err).ShouldNot(HaveOccurred())
+
+			Expect(actual).Should(Equal(golden))
+
+			_ = os.RemoveAll(configPath)
+		})
+		It("Should generate correct kind config for cluster with k8s version lower then 1.15", func() {
+
+			flags := config.CreateFlagpole{
+				ImageName: "test/test:v1.13.2",
+			}
+
+			currentDir, err := os.Getwd()
+			Ω(err).ShouldNot(HaveOccurred())
+
+			cl, err := PopulateClusterConfig(1, &flags)
+			Ω(err).ShouldNot(HaveOccurred())
+
+			box := packr.New("configs", "../../configs")
+
+			configDir := filepath.Join(currentDir, "testdata/kind")
+			gf := filepath.Join(configDir, "v1beta1.golden")
+			cl.Name = "cl5"
+			cl.DNSDomain = "cl5.local"
+			configPath, err := GenerateKindConfig(cl, configDir, box)
+			Ω(err).ShouldNot(HaveOccurred())
+
+			golden, err := ioutil.ReadFile(gf)
+			Ω(err).ShouldNot(HaveOccurred())
+			actual, err := ioutil.ReadFile(configPath)
+			Ω(err).ShouldNot(HaveOccurred())
+
+			Expect(actual).Should(Equal(golden))
+
+			_ = os.RemoveAll(configPath)
+		})
+		It("Should generate correct kind config for cluster with k8s version higher then 1.15", func() {
+
+			flags := config.CreateFlagpole{
+				ImageName: "test/test:v1.16.2",
+			}
+
+			currentDir, err := os.Getwd()
+			Ω(err).ShouldNot(HaveOccurred())
+
+			cl, err := PopulateClusterConfig(1, &flags)
+			Ω(err).ShouldNot(HaveOccurred())
+
+			box := packr.New("configs", "../../configs")
+
+			configDir := filepath.Join(currentDir, "testdata/kind")
+			gf := filepath.Join(configDir, "v1beta2.golden")
+			cl.Name = "cl8"
+			cl.DNSDomain = "cl8.local"
+			configPath, err := GenerateKindConfig(cl, configDir, box)
+			Ω(err).ShouldNot(HaveOccurred())
+
+			golden, err := ioutil.ReadFile(gf)
+			Ω(err).ShouldNot(HaveOccurred())
+			actual, err := ioutil.ReadFile(configPath)
+			Ω(err).ShouldNot(HaveOccurred())
+
+			Expect(string(actual)).Should(Equal(string(golden)))
+
+			_ = os.RemoveAll(configPath)
 		})
 	})
 })
