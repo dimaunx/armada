@@ -4,6 +4,8 @@ import (
 	"io/ioutil"
 	"strings"
 
+	"github.com/dimaunx/armada/pkg/utils"
+
 	"github.com/dimaunx/armada/pkg/cluster"
 	"github.com/dimaunx/armada/pkg/config"
 	log "github.com/sirupsen/logrus"
@@ -51,7 +53,7 @@ func DestroyClustersCommand(provider *kind.Provider) *cobra.Command {
 
 			if len(flags.Clusters) > 0 {
 				for _, clName := range flags.Clusters {
-					known, err := cluster.IsKnown(clName, provider)
+					known, err := utils.ClusterIsKnown(clName, provider)
 					if err != nil {
 						log.Fatalf("%s: %v", clName, err)
 					}

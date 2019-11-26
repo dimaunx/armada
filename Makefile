@@ -21,7 +21,7 @@ GOIMPORTS := $(GOBIN)/goimports
 GINKGO := $(GOBIN)/ginkgo
 
 # # Use linker flags to provide version/build settings
-LDFLAGS=-ldflags "-X github.com/dimaunx/armada/cmd/armada.Version=$(VERSION) -X github.com/dimaunx/armada/cmd/armada.Build=$(BUILD)"
+LDFLAGS=-ldflags "-X github.com/dimaunx/armada/pkg/cmd/armada.Version=$(VERSION) -X github.com/dimaunx/armada/pkg/cmd/armada.Build=$(BUILD)"
 
 $(GOLANGCILINT):
 	curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(GOBIN) v1.17.0
@@ -77,7 +77,7 @@ docker:
 .PHONY: docker
 
 clean: fix-perm
-	rm -rf packrd debug packr2 $(OUTPUTDIR) $(GOBASE)/vendor $(GOBASE)/cmd/armada/armada-packr.go $(GOBASE)/pkg/*/*.cover* $(GOBASE)/pkg/*/output
+	rm -rf packrd debug packr2 $(OUTPUTDIR) $(GOBASE)/vendor $(GOBASE)/pkg/cmd/armada/armada-packr.go $(GOBASE)/pkg/*/*.cover* $(GOBASE)/pkg/*/output
 	-docker ps -qf status=exited | xargs docker rm -f
 	-docker ps -qaf name=$(PROJECTNAME)- | xargs docker rm -f
 	-docker images -qf dangling=true | xargs docker rmi -f

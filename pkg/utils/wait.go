@@ -1,19 +1,20 @@
-package wait
+package utils
 
 import (
 	"context"
 	"time"
 
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
+
 	"github.com/dimaunx/armada/pkg/config"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
 )
 
-// ForPodsRunning waits for pods to be running
-func ForPodsRunning(clName string, c kubernetes.Interface, namespace, selector string, replicas int) error {
+// WaitForPodsRunning waits for pods to be running
+func WaitForPodsRunning(clName string, c kubernetes.Interface, namespace, selector string, replicas int) error {
 	ctx := context.Background()
 	log.Infof("Waiting for pods to be running. label: %q, namespace: %q, replicas: %v, duration: %v, *types: %s.", selector, namespace, replicas, config.WaitDurationResources, clName)
 	podsContext, cancel := context.WithTimeout(ctx, config.WaitDurationResources)
@@ -37,8 +38,8 @@ func ForPodsRunning(clName string, c kubernetes.Interface, namespace, selector s
 	return nil
 }
 
-// ForDeploymentReady waits for deployment roll out
-func ForDeploymentReady(clName string, c kubernetes.Interface, namespace, deploymentName string) error {
+// WaitForDeploymentReady waits for deployment roll out
+func WaitForDeploymentReady(clName string, c kubernetes.Interface, namespace, deploymentName string) error {
 	ctx := context.Background()
 	log.Infof("Waiting up to %v for %s deployment roll out %s ...", config.WaitDurationResources, deploymentName, clName)
 	deploymentContext, cancel := context.WithTimeout(ctx, config.WaitDurationResources)
@@ -62,8 +63,8 @@ func ForDeploymentReady(clName string, c kubernetes.Interface, namespace, deploy
 	return nil
 }
 
-// ForDaemonSetReady waits for daemon set roll out
-func ForDaemonSetReady(clName string, c kubernetes.Interface, namespace, daemonSetName string) error {
+// WaitForDaemonSetReady waits for daemon set roll out
+func WaitForDaemonSetReady(clName string, c kubernetes.Interface, namespace, daemonSetName string) error {
 	ctx := context.Background()
 	log.Infof("Waiting up to %v for %s daemon set roll out %s ...", config.WaitDurationResources, daemonSetName, clName)
 	deploymentContext, cancel := context.WithTimeout(ctx, config.WaitDurationResources)

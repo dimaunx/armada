@@ -6,11 +6,10 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/dimaunx/armada/pkg/cluster"
+	"github.com/dimaunx/armada/pkg/utils"
 
 	"github.com/dimaunx/armada/pkg/config"
 	"github.com/dimaunx/armada/pkg/deploy"
-	"github.com/dimaunx/armada/pkg/wait"
 	"github.com/gobuffalo/packr/v2"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -78,7 +77,7 @@ func DeployNetshootCommand() *cobra.Command {
 			for _, file := range configFiles {
 				go func(file os.FileInfo) {
 					clName := strings.FieldsFunc(file.Name(), func(r rune) bool { return strings.ContainsRune(" -.", r) })[2]
-					kubeConfigFilePath, err := cluster.GetKubeConfigPath(clName)
+					kubeConfigFilePath, err := utils.GetKubeConfigPath(clName)
 					if err != nil {
 						log.Fatalf("%s %s", clName, err)
 					}
@@ -93,12 +92,12 @@ func DeployNetshootCommand() *cobra.Command {
 						log.Fatalf("%s %s", clName, err)
 					}
 
-					err = deploy.CreateResources(clName, clientSet, netshootDeploymentFile.String(), "Netshoot")
+					err = deploy.Resources(clName, clientSet, netshootDeploymentFile.String(), "Netshoot")
 					if err != nil {
 						log.Fatalf("%s %s", clName, err)
 					}
 
-					err = wait.ForDaemonSetReady(clName, clientSet, "default", selector)
+					err = utils.WaitForDaemonSetReady(clName, clientSet, "default", selector)
 					if err != nil {
 						log.Fatalf("%s %s", clName, err)
 					}
@@ -139,7 +138,7 @@ func DeployNginxDemoCommand() *cobra.Command {
 			for _, file := range configFiles {
 				go func(file os.FileInfo) {
 					clName := strings.FieldsFunc(file.Name(), func(r rune) bool { return strings.ContainsRune(" -.", r) })[2]
-					kubeConfigFilePath, err := cluster.GetKubeConfigPath(clName)
+					kubeConfigFilePath, err := utils.GetKubeConfigPath(clName)
 					if err != nil {
 						log.Fatalf("%s %s", clName, err)
 					}
@@ -154,12 +153,12 @@ func DeployNginxDemoCommand() *cobra.Command {
 						log.Fatalf("%s %s", clName, err)
 					}
 
-					err = deploy.CreateResources(clName, clientSet, nginxDeploymentFile.String(), "Nginx")
+					err = deploy.Resources(clName, clientSet, nginxDeploymentFile.String(), "Nginx")
 					if err != nil {
 						log.Fatalf("%s %s", clName, err)
 					}
 
-					err = wait.ForDaemonSetReady(clName, clientSet, "default", "nginx-demo")
+					err = utils.WaitForDaemonSetReady(clName, clientSet, "default", "nginx-demo")
 					if err != nil {
 						log.Fatalf("%s %s", clName, err)
 					}

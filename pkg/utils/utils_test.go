@@ -1,6 +1,14 @@
-package cluster
+package utils_test
 
 import (
+	"context"
+	"fmt"
+	"github.com/dimaunx/armada/pkg/utils"
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/filters"
+	dockerclient "github.com/docker/docker/client"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/user"
@@ -11,43 +19,31 @@ import (
 
 	"github.com/gobuffalo/packr/v2"
 
+	"github.com/dimaunx/armada/pkg/cmd/armada"
 	"github.com/dimaunx/armada/pkg/config"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	kind "sigs.k8s.io/kind/pkg/cluster"
-	kindcmd "sigs.k8s.io/kind/pkg/cmd"
 )
 
 func TestCluster(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Cluster test suite")
+	RunSpecs(t, "Utils test suite")
 }
 
-var _ = Describe("Create cluster", func() {
+var _ = Describe("Utils", func() {
 
 	AfterSuite(func() {
-
-		provider := kind.NewProvider(
-			kind.ProviderWithLogger(kindcmd.NewLogger()),
-		)
-
-		configFiles, _ := ioutil.ReadDir(config.KindConfigDir)
-
-		for _, file := range configFiles {
-			clName := strings.FieldsFunc(file.Name(), func(r rune) bool { return strings.ContainsRune(" -.", r) })[2]
-			err := Destroy(clName, provider)
-			Ω(err).ShouldNot(HaveOccurred())
-		}
 		_ = os.RemoveAll("./output")
 	})
+
 	Context("unit: Default flags", func() {
 		It("Should populate config with correct default values", func() {
-			flags := config.CreateFlagpole{
+			flags := &armada.CreateFlagpole{
 				Kindnet: true,
 			}
 			usr, err := user.Current()
 			Ω(err).ShouldNot(HaveOccurred())
-			got, err := PopulateClusterConfig(1, &flags)
+			got, err := armada.PopulateClusterConfig(1, flags)
 			Ω(err).ShouldNot(HaveOccurred())
 			Expect(got).Should(Equal(&config.Cluster{
 				Cni:                 "kindnet",
@@ -63,13 +59,13 @@ var _ = Describe("Create cluster", func() {
 	})
 	Context("unit: Custom flags", func() {
 		It("Should set KubeAdminAPIVersion to kubeadm.k8s.io/v1beta1", func() {
-			flags := config.CreateFlagpole{
+			flags := &armada.CreateFlagpole{
 				ImageName: "kindest/node:v1.11.1",
 				Kindnet:   true,
 			}
 			usr, err := user.Current()
 			Ω(err).ShouldNot(HaveOccurred())
-			got, err := PopulateClusterConfig(1, &flags)
+			got, err := armada.PopulateClusterConfig(1, flags)
 			Ω(err).ShouldNot(HaveOccurred())
 			Expect(got).Should(Equal(&config.Cluster{
 				Cni:                 "kindnet",
@@ -80,16 +76,19 @@ var _ = Describe("Create cluster", func() {
 				KubeAdminAPIVersion: "kubeadm.k8s.io/v1beta1",
 				NumWorkers:          config.NumWorkers,
 				KubeConfigFilePath:  filepath.Join(usr.HomeDir, ".kube", "kind-config-"+config.ClusterNameBase+strconv.Itoa(1)),
+				Retain:              false,
+				Tiller:              false,
+				NodeImageName:       "kindest/node:v1.11.1",
 			}))
 		})
 		It("Should set KubeAdminAPIVersion to kubeadm.k8s.io/v1beta2", func() {
-			flags := config.CreateFlagpole{
+			flags := &armada.CreateFlagpole{
 				ImageName: "kindest/node:v1.16.3",
 				Kindnet:   true,
 			}
 			usr, err := user.Current()
 			Ω(err).ShouldNot(HaveOccurred())
-			got, err := PopulateClusterConfig(1, &flags)
+			got, err := armada.PopulateClusterConfig(1, flags)
 			Ω(err).ShouldNot(HaveOccurred())
 			Expect(got).Should(Equal(&config.Cluster{
 				Cni:                 "kindnet",
@@ -100,16 +99,19 @@ var _ = Describe("Create cluster", func() {
 				KubeAdminAPIVersion: "kubeadm.k8s.io/v1beta2",
 				NumWorkers:          config.NumWorkers,
 				KubeConfigFilePath:  filepath.Join(usr.HomeDir, ".kube", "kind-config-"+config.ClusterNameBase+strconv.Itoa(1)),
+				Retain:              false,
+				Tiller:              false,
+				NodeImageName:       "kindest/node:v1.16.3",
 			}))
 		})
 		It("Should set KubeAdminAPIVersion to kubeadm.k8s.io/v1beta2 if image name is empty", func() {
-			flags := config.CreateFlagpole{
+			flags := &armada.CreateFlagpole{
 				ImageName: "",
 				Kindnet:   true,
 			}
 			usr, err := user.Current()
 			Ω(err).ShouldNot(HaveOccurred())
-			got, err := PopulateClusterConfig(1, &flags)
+			got, err := armada.PopulateClusterConfig(1, flags)
 			Ω(err).ShouldNot(HaveOccurred())
 			Expect(got).Should(Equal(&config.Cluster{
 				Cni:                 "kindnet",
@@ -123,21 +125,21 @@ var _ = Describe("Create cluster", func() {
 			}))
 		})
 		It("Should return error with invalid node image name", func() {
-			flags := config.CreateFlagpole{
+			flags := &armada.CreateFlagpole{
 				ImageName: "kindest/node:1.16.3",
 			}
-			got, err := PopulateClusterConfig(1, &flags)
+			got, err := armada.PopulateClusterConfig(1, flags)
 			Ω(err).Should(HaveOccurred())
 			Expect(got).To(BeNil())
 			Expect(err).NotTo(BeNil())
 		})
 		It("Should set Cni to weave", func() {
-			flags := config.CreateFlagpole{
+			flags := &armada.CreateFlagpole{
 				Weave: true,
 			}
 			usr, err := user.Current()
 			Ω(err).ShouldNot(HaveOccurred())
-			got, err := PopulateClusterConfig(1, &flags)
+			got, err := armada.PopulateClusterConfig(1, flags)
 			Ω(err).ShouldNot(HaveOccurred())
 			Expect(got).Should(Equal(&config.Cluster{
 				Cni:                 "weave",
@@ -151,12 +153,12 @@ var _ = Describe("Create cluster", func() {
 			}))
 		})
 		It("Should set Cni to calico", func() {
-			flags := config.CreateFlagpole{
+			flags := &armada.CreateFlagpole{
 				Calico: true,
 			}
 			usr, err := user.Current()
 			Ω(err).ShouldNot(HaveOccurred())
-			got, err := PopulateClusterConfig(1, &flags)
+			got, err := armada.PopulateClusterConfig(1, flags)
 			Ω(err).ShouldNot(HaveOccurred())
 			Expect(got).Should(Equal(&config.Cluster{
 				Cni:                 "calico",
@@ -170,12 +172,12 @@ var _ = Describe("Create cluster", func() {
 			}))
 		})
 		It("Should set Cni to flannel", func() {
-			flags := config.CreateFlagpole{
+			flags := &armada.CreateFlagpole{
 				Flannel: true,
 			}
 			usr, err := user.Current()
 			Ω(err).ShouldNot(HaveOccurred())
-			got, err := PopulateClusterConfig(1, &flags)
+			got, err := armada.PopulateClusterConfig(1, flags)
 			Ω(err).ShouldNot(HaveOccurred())
 			Expect(got).Should(Equal(&config.Cluster{
 				Cni:                 "flannel",
@@ -189,7 +191,7 @@ var _ = Describe("Create cluster", func() {
 			}))
 		})
 		It("Should create configs for 2 clusters with flannel and overlapping cidrs", func() {
-			flags := config.CreateFlagpole{
+			flags := &armada.CreateFlagpole{
 				Flannel:     true,
 				Overlap:     true,
 				NumClusters: 2,
@@ -200,7 +202,7 @@ var _ = Describe("Create cluster", func() {
 
 			var clusters []*config.Cluster
 			for i := 1; i <= flags.NumClusters; i++ {
-				cl, err := PopulateClusterConfig(i, &flags)
+				cl, err := armada.PopulateClusterConfig(i, flags)
 				Ω(err).ShouldNot(HaveOccurred())
 				clusters = append(clusters, cl)
 			}
@@ -246,7 +248,7 @@ var _ = Describe("Create cluster", func() {
 
 			configDir := filepath.Join(currentDir, "testdata/kind")
 			gf := filepath.Join(configDir, "default_cni.golden")
-			configPath, err := GenerateKindConfig(&cl, configDir, box)
+			configPath, err := utils.GenerateKindConfig(&cl, configDir, box)
 			Ω(err).ShouldNot(HaveOccurred())
 
 			golden, err := ioutil.ReadFile(gf)
@@ -276,7 +278,7 @@ var _ = Describe("Create cluster", func() {
 
 			configDir := filepath.Join(currentDir, "testdata/kind")
 			gf := filepath.Join(configDir, "custom_cni.golden")
-			configPath, err := GenerateKindConfig(&cl, configDir, box)
+			configPath, err := utils.GenerateKindConfig(&cl, configDir, box)
 			Ω(err).ShouldNot(HaveOccurred())
 
 			golden, err := ioutil.ReadFile(gf)
@@ -306,7 +308,7 @@ var _ = Describe("Create cluster", func() {
 
 			configDir := filepath.Join(currentDir, "testdata/kind")
 			gf := filepath.Join(configDir, "custom_five_workers.golden")
-			configPath, err := GenerateKindConfig(&cl, configDir, box)
+			configPath, err := utils.GenerateKindConfig(&cl, configDir, box)
 			Ω(err).ShouldNot(HaveOccurred())
 
 			golden, err := ioutil.ReadFile(gf)
@@ -320,7 +322,7 @@ var _ = Describe("Create cluster", func() {
 		})
 		It("Should generate correct kind config for cluster with k8s version lower then 1.15", func() {
 
-			flags := config.CreateFlagpole{
+			flags := &armada.CreateFlagpole{
 				ImageName: "test/test:v1.13.2",
 				Kindnet:   true,
 			}
@@ -328,7 +330,7 @@ var _ = Describe("Create cluster", func() {
 			currentDir, err := os.Getwd()
 			Ω(err).ShouldNot(HaveOccurred())
 
-			cl, err := PopulateClusterConfig(1, &flags)
+			cl, err := armada.PopulateClusterConfig(1, flags)
 			Ω(err).ShouldNot(HaveOccurred())
 
 			box := packr.New("configs", "../../configs")
@@ -337,7 +339,7 @@ var _ = Describe("Create cluster", func() {
 			gf := filepath.Join(configDir, "v1beta1.golden")
 			cl.Name = "cl5"
 			cl.DNSDomain = "cl5.local"
-			configPath, err := GenerateKindConfig(cl, configDir, box)
+			configPath, err := utils.GenerateKindConfig(cl, configDir, box)
 			Ω(err).ShouldNot(HaveOccurred())
 
 			golden, err := ioutil.ReadFile(gf)
@@ -351,7 +353,7 @@ var _ = Describe("Create cluster", func() {
 		})
 		It("Should generate correct kind config for cluster with k8s version higher then 1.15", func() {
 
-			flags := config.CreateFlagpole{
+			flags := &armada.CreateFlagpole{
 				ImageName: "test/test:v1.16.2",
 				Kindnet:   true,
 			}
@@ -359,7 +361,7 @@ var _ = Describe("Create cluster", func() {
 			currentDir, err := os.Getwd()
 			Ω(err).ShouldNot(HaveOccurred())
 
-			cl, err := PopulateClusterConfig(1, &flags)
+			cl, err := armada.PopulateClusterConfig(1, flags)
 			Ω(err).ShouldNot(HaveOccurred())
 
 			box := packr.New("configs", "../../configs")
@@ -368,7 +370,7 @@ var _ = Describe("Create cluster", func() {
 			gf := filepath.Join(configDir, "v1beta2.golden")
 			cl.Name = "cl8"
 			cl.DNSDomain = "cl8.local"
-			configPath, err := GenerateKindConfig(cl, configDir, box)
+			configPath, err := utils.GenerateKindConfig(cl, configDir, box)
 			Ω(err).ShouldNot(HaveOccurred())
 
 			golden, err := ioutil.ReadFile(gf)
@@ -379,6 +381,153 @@ var _ = Describe("Create cluster", func() {
 			Expect(string(actual)).Should(Equal(string(golden)))
 
 			_ = os.RemoveAll(configPath)
+		})
+	})
+	Context("unit: Kubeconfigs", func() {
+		It("Should generate correct kube configs for local and container based deployments", func() {
+			currentDir, err := os.Getwd()
+			Ω(err).ShouldNot(HaveOccurred())
+
+			cl := config.Cluster{
+				Name: "cl1",
+			}
+
+			configDir := filepath.Join(currentDir, "testdata/kube")
+			kindKubeFileName := strings.Join([]string{"kind-config", cl.Name}, "-")
+			newLocalKubeFilePath := filepath.Join(currentDir, config.LocalKubeConfigDir, kindKubeFileName)
+			newContainerKubeFilePath := filepath.Join(currentDir, config.ContainerKubeConfigDir, kindKubeFileName)
+			gfs := filepath.Join(configDir, "kubeconfig_source")
+			err = utils.PrepareKubeConfigs(cl.Name, gfs, "172.17.0.3")
+			Ω(err).ShouldNot(HaveOccurred())
+
+			local, err := ioutil.ReadFile(newLocalKubeFilePath)
+			Ω(err).ShouldNot(HaveOccurred())
+			container, err := ioutil.ReadFile(newContainerKubeFilePath)
+			Ω(err).ShouldNot(HaveOccurred())
+			localGolden, err := ioutil.ReadFile(filepath.Join(configDir, "kubeconfig_local.golden"))
+			Ω(err).ShouldNot(HaveOccurred())
+			containerGolden, err := ioutil.ReadFile(filepath.Join(configDir, "kubeconfig_container.golden"))
+			Ω(err).ShouldNot(HaveOccurred())
+
+			Expect(local).Should(Equal(localGolden))
+			Expect(container).Should(Equal(containerGolden))
+		})
+	})
+	Context("unit: Cni deployment files", func() {
+		It("Should generate correct weave deployment file", func() {
+			currentDir, err := os.Getwd()
+			Ω(err).ShouldNot(HaveOccurred())
+
+			cl := config.Cluster{
+				Name:      "cl1",
+				PodSubnet: "1.2.3.4/14",
+			}
+
+			box := packr.New("configs", "../../configs")
+
+			configDir := filepath.Join(currentDir, "testdata/cni")
+			actual, err := utils.GenerateWeaveDeploymentFile(&cl, box)
+			Ω(err).ShouldNot(HaveOccurred())
+			golden, err := ioutil.ReadFile(filepath.Join(configDir, "weave_deployment.golden"))
+			Ω(err).ShouldNot(HaveOccurred())
+
+			Expect(actual).Should(Equal(string(golden)))
+		})
+		It("Should generate correct flannel deployment file", func() {
+			currentDir, err := os.Getwd()
+			Ω(err).ShouldNot(HaveOccurred())
+
+			cl := config.Cluster{
+				Name:      "cl1",
+				PodSubnet: "1.2.3.4/8",
+			}
+
+			box := packr.New("configs", "../../configs")
+
+			configDir := filepath.Join(currentDir, "testdata/cni")
+			actual, err := utils.GenerateFlannelDeploymentFile(&cl, box)
+			Ω(err).ShouldNot(HaveOccurred())
+			golden, err := ioutil.ReadFile(filepath.Join(configDir, "flannel_deployment.golden"))
+			Ω(err).ShouldNot(HaveOccurred())
+
+			Expect(actual).Should(Equal(string(golden)))
+		})
+		It("Should generate correct calico deployment file", func() {
+			currentDir, err := os.Getwd()
+			Ω(err).ShouldNot(HaveOccurred())
+
+			cl := config.Cluster{
+				PodSubnet: "1.2.3.4/16",
+			}
+
+			box := packr.New("configs", "../../configs")
+
+			configDir := filepath.Join(currentDir, "testdata/cni")
+			actual, err := utils.GenerateCalicoDeploymentFile(&cl, box)
+			Ω(err).ShouldNot(HaveOccurred())
+			golden, err := ioutil.ReadFile(filepath.Join(configDir, "calico_deployment.golden"))
+			Ω(err).ShouldNot(HaveOccurred())
+
+			Expect(actual).Should(Equal(string(golden)))
+		})
+	})
+	Context("component: Containers", func() {
+		AfterEach(func() {
+			ctx := context.Background()
+			dockerCli, err := dockerclient.NewEnvClient()
+			Ω(err).ShouldNot(HaveOccurred())
+
+			containerFilter := filters.NewArgs()
+			containerFilter.Add("name", "cl2-control-plane")
+
+			containers, err := dockerCli.ContainerList(ctx, types.ContainerListOptions{
+				Filters: containerFilter,
+				Limit:   1,
+			})
+			Ω(err).ShouldNot(HaveOccurred())
+
+			err = dockerCli.ContainerRemove(ctx, containers[0].ID, types.ContainerRemoveOptions{
+				Force: true,
+			})
+			Ω(err).ShouldNot(HaveOccurred())
+		})
+		It("Should return the correct ip of a master node by name", func() {
+
+			ctx := context.Background()
+			dockerCli, err := dockerclient.NewEnvClient()
+			Ω(err).ShouldNot(HaveOccurred())
+
+			reader, err := dockerCli.ImagePull(ctx, "docker.io/library/alpine", types.ImagePullOptions{})
+			Ω(err).ShouldNot(HaveOccurred())
+			_, err = io.Copy(os.Stdout, reader)
+			Ω(err).ShouldNot(HaveOccurred())
+
+			resp, err := dockerCli.ContainerCreate(ctx, &container.Config{
+				Image: "alpine",
+				Cmd:   []string{"/bin/sh"},
+			}, nil, nil, "cl2-control-plane")
+			Ω(err).ShouldNot(HaveOccurred())
+
+			err = dockerCli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{})
+			Ω(err).ShouldNot(HaveOccurred())
+
+			containerFilter := filters.NewArgs()
+			containerFilter.Add("name", "cl2-control-plane")
+
+			containers, err := dockerCli.ContainerList(ctx, types.ContainerListOptions{
+				Filters: containerFilter,
+				Limit:   1,
+			})
+			Ω(err).ShouldNot(HaveOccurred())
+
+			fmt.Print(containers)
+			actual := containers[0].NetworkSettings.Networks["bridge"].IPAddress
+
+			masterIP, err := utils.GetMasterDockerIP("cl2")
+			Ω(err).ShouldNot(HaveOccurred())
+			fmt.Printf("actual: %s , returned: %s", actual, masterIP)
+
+			Expect(actual).Should(Equal(masterIP))
 		})
 	})
 })
