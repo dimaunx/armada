@@ -1,0 +1,49 @@
+name: Test
+on: [push, pull_request]
+jobs:
+
+  local:
+    name: Local Build
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: Set up Go 1.12
+      uses: actions/setup-go@v1
+      with:
+        go-version: 1.12
+      id: go
+
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v1
+
+    - name: Build
+      run: make build
+
+    - name: Run tests
+      run: make test
+      
+    - name: Run e2e
+      run: make e2e
+
+  docker:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: Set up Go 1.12
+      uses: actions/setup-go@v1
+      with:
+        go-version: 1.12
+      id: go
+
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v1
+
+    - name: Build
+      run: make docker-run ARGS="make build"
+
+    - name: Run tests
+      run: make docker-run ARGS="make test"
+      
+    - name: Run e2e
+      run: make docker-run ARGS="make e2e"
