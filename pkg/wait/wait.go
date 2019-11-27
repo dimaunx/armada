@@ -29,7 +29,7 @@ func ForPodsRunning(clName string, c kubernetes.Interface, namespace, selector s
 		} else {
 			log.Debugf("Still waiting for pods. label: %q, namespace: %q, replicas: %v, cluster: %s.", selector, namespace, replicas, clName)
 		}
-	}, 30*time.Second, podsContext.Done())
+	}, 15*time.Second, podsContext.Done())
 
 	err := podsContext.Err()
 	if err != nil && err != context.Canceled {
@@ -80,7 +80,7 @@ func ForDaemonSetReady(clName string, c kubernetes.Interface, namespace, daemonS
 		} else {
 			log.Debugf("Still waiting for %s daemon set roll out %s ...", daemonSetName, clName)
 		}
-	}, 15*time.Second, deploymentContext.Done())
+	}, 5*time.Second, deploymentContext.Done())
 	err := deploymentContext.Err()
 	if err != nil && err != context.Canceled {
 		return errors.Wrapf(err, "Error waiting for %s daemon set roll out.", daemonSetName)
