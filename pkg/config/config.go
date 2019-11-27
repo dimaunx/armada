@@ -63,40 +63,16 @@ type Cluster struct {
 
 	// KubeConfigFilePath is the destination where kind will generate the original kubeconfig file
 	KubeConfigFilePath string
-}
 
-// CreateFlagpole is a list of cli flags for create clusters command
-type CreateFlagpole struct {
-	// ImageName is the node image used for cluster creation
-	ImageName string
+	// Amount of time to wait for control plain to be ready
+	WaitForReady time.Duration
 
-	// Wait is a time duration to wait until cluster is ready
-	Wait time.Duration
+	// Cluster image name
+	NodeImageName string
 
-	// Retain if you keep clusters running even if error occurs
+	// Retain if to retain the cluster despite and error
 	Retain bool
 
-	// Weave if to install weave cni
-	Weave bool
-
-	// Flannel if to install flannel cni
-	Flannel bool
-
-	// Calico if to install calico cni
-	Calico bool
-
-	// Kindnet if to install kindnet default cni
-	Kindnet bool
-
-	// Debug if to enable debug log level
-	Debug bool
-
-	// Tiller if to install tiller
+	// Tiller if to deploy a cluster with tiller
 	Tiller bool
-
-	// Overlap if to create clusters with overlapping cidrs
-	Overlap bool
-
-	// NumClusters is the number of clusters to create
-	NumClusters int
 }

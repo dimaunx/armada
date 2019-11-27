@@ -4,8 +4,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/dimaunx/armada/pkg/wait"
-	"github.com/gobuffalo/packr/v2"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
@@ -21,8 +19,8 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 )
 
-// CreateResources deploys k8s resources
-func CreateResources(clName string, clientSet kubernetes.Interface, deploymentFile string, resourceName string) error {
+// Resources deploys k8s resources
+func Resources(clName string, clientSet kubernetes.Interface, deploymentFile string, resourceName string) error {
 	acceptedK8sTypes := regexp.MustCompile(`(Role|RoleBinding|ClusterRole|ClusterRoleBinding|ServiceAccount|ConfigMap|DaemonSet|Deployment|Service|Pod)`)
 	fileAsString := deploymentFile[:]
 	sepYamlfiles := strings.Split(fileAsString, "---")
@@ -141,8 +139,8 @@ func CreateResources(clName string, clientSet kubernetes.Interface, deploymentFi
 	return nil
 }
 
-// CreateCrdResources deploys k8s CRD resources
-func CreateCrdResources(clName string, apiExtClientSet apiextclientset.Interface, deploymentFile string) error {
+// CrdResources deploys k8s CRD resources
+func CrdResources(clName string, apiExtClientSet apiextclientset.Interface, deploymentFile string) error {
 	acceptedK8sTypes := regexp.MustCompile(`(CustomResourceDefinition)`)
 	fileAsString := deploymentFile[:]
 	sepYamlfiles := strings.Split(fileAsString, "---")
@@ -172,25 +170,6 @@ func CreateCrdResources(clName string, apiExtClientSet apiextclientset.Interface
 				}
 			}
 		}
-	}
-	return nil
-}
-
-// Tiller deploys tiller to the clusters
-func Tiller(clName string, clientSet kubernetes.Interface, box *packr.Box) error {
-	tillerDeploymentFile, err := box.Resolve("helm/tiller-deployment.yaml")
-	if err != nil {
-		return err
-	}
-
-	err = CreateResources(clName, clientSet, tillerDeploymentFile.String(), "Tiller")
-	if err != nil {
-		return err
-	}
-
-	err = wait.ForDeploymentReady(clName, clientSet, "kube-system", "tiller-deploy")
-	if err != nil {
-		return err
 	}
 	return nil
 }

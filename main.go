@@ -1,9 +1,9 @@
 package main
 
 import (
-	"github.com/dimaunx/armada/cmd/armada"
+	"github.com/dimaunx/armada/cmd/app"
 )
 
 func main() {
-	armada.Main()
+	app.Main()
 }

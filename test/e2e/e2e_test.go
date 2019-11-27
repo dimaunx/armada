@@ -13,6 +13,7 @@ import (
 
 	"github.com/dimaunx/armada/pkg/deploy"
 	"github.com/dimaunx/armada/pkg/wait"
+	"github.com/gobuffalo/packr/v2"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -23,16 +24,15 @@ import (
 	kind "sigs.k8s.io/kind/pkg/cluster"
 	kindcmd "sigs.k8s.io/kind/pkg/cmd"
 
-	"github.com/dimaunx/armada/cmd/armada"
 	"github.com/dimaunx/armada/pkg/cluster"
+	"github.com/dimaunx/armada/pkg/cmd/armada"
 	"github.com/dimaunx/armada/pkg/config"
-	"github.com/gobuffalo/packr/v2"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
-func CreateEnvironment(flags *config.CreateFlagpole, provider *kind.Provider) ([]*config.Cluster, error) {
-	box := packr.New("configs", "../../configs")
+func CreateEnvironment(flags *armada.CreateFlagpole, provider *kind.Provider) ([]*config.Cluster, error) {
+	box := packr.New("configs", "../../../configs")
 
 	if flags.Debug {
 		log.SetLevel(log.DebugLevel)
@@ -48,7 +48,7 @@ func CreateEnvironment(flags *config.CreateFlagpole, provider *kind.Provider) ([
 		if known {
 			log.Infof("✔ Cluster with the name %q already exists.", clName)
 		} else {
-			cl, err := cluster.PopulateClusterConfig(i, flags)
+			cl, err := armada.PopulateClusterConfig(i, flags)
 			if err != nil {
 				return nil, err
 			}
@@ -60,7 +60,7 @@ func CreateEnvironment(flags *config.CreateFlagpole, provider *kind.Provider) ([
 	wg.Add(len(clusters))
 	for _, cl := range clusters {
 		go func(cl *config.Cluster) {
-			err := cluster.Create(cl, flags, provider, box, &wg)
+			err := cluster.Create(cl, provider, box, &wg)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -71,7 +71,7 @@ func CreateEnvironment(flags *config.CreateFlagpole, provider *kind.Provider) ([
 	wg.Add(len(clusters))
 	for _, cl := range clusters {
 		go func(cl *config.Cluster) {
-			err := cluster.FinalizeSetup(cl, flags, box, &wg)
+			err := cluster.FinalizeSetup(cl, box, &wg)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -86,26 +86,31 @@ func TestCluster(t *testing.T) {
 	RunSpecs(t, "E2E test suite")
 }
 
-var _ = Describe("Cluster", func() {
+var _ = Describe("E2E Tests", func() {
 
 	provider := kind.NewProvider(
 		kind.ProviderWithLogger(kindcmd.NewLogger()),
 	)
 
+	var _ = AfterSuite(func() {
+		_ = os.RemoveAll("./output")
+	})
+
 	usr, err := user.Current()
 	if err != nil {
 		log.Fatal(err)
 	}
-	Context("e2e: Cluster creation and deployment", func() {
+	Context("Cluster creation and deployment", func() {
 		It("Should create 2 clusters with flannel and overlapping cidrs", func() {
-			flags := config.CreateFlagpole{
+			flags := &armada.CreateFlagpole{
 				NumClusters: 2,
 				Overlap:     true,
 				Flannel:     true,
 				Debug:       true,
+				Retain:      false,
 			}
 
-			clusters, err := CreateEnvironment(&flags, provider)
+			clusters, err := CreateEnvironment(flags, provider)
 			Ω(err).ShouldNot(HaveOccurred())
 
 			cl1Status, err := cluster.IsKnown(config.ClusterNameBase+strconv.Itoa(1), provider)
@@ -125,6 +130,7 @@ var _ = Describe("Cluster", func() {
 					KubeAdminAPIVersion: config.KubeAdminAPIVersion,
 					NumWorkers:          config.NumWorkers,
 					KubeConfigFilePath:  filepath.Join(usr.HomeDir, ".kube", "kind-config-"+config.ClusterNameBase+strconv.Itoa(1)),
+					Retain:              false,
 				},
 				{
 					Cni:                 "flannel",
@@ -135,19 +141,21 @@ var _ = Describe("Cluster", func() {
 					KubeAdminAPIVersion: config.KubeAdminAPIVersion,
 					NumWorkers:          config.NumWorkers,
 					KubeConfigFilePath:  filepath.Join(usr.HomeDir, ".kube", "kind-config-"+config.ClusterNameBase+strconv.Itoa(2)),
+					Retain:              false,
 				},
 			}))
 		})
 		It("Should create a third cluster with weave, kindest/node:v1.15.6 and tiller", func() {
-			flags := config.CreateFlagpole{
+			flags := &armada.CreateFlagpole{
 				NumClusters: 3,
 				Weave:       true,
 				Tiller:      true,
 				ImageName:   "kindest/node:v1.15.6",
 				Debug:       true,
+				Retain:      false,
 			}
 
-			clusters, err := CreateEnvironment(&flags, provider)
+			clusters, err := CreateEnvironment(flags, provider)
 			Ω(err).ShouldNot(HaveOccurred())
 
 			ctx := context.Background()
@@ -177,6 +185,10 @@ var _ = Describe("Cluster", func() {
 					KubeAdminAPIVersion: "kubeadm.k8s.io/v1beta2",
 					NumWorkers:          config.NumWorkers,
 					KubeConfigFilePath:  filepath.Join(usr.HomeDir, ".kube", "kind-config-"+config.ClusterNameBase+strconv.Itoa(3)),
+					WaitForReady:        0,
+					NodeImageName:       "kindest/node:v1.15.6",
+					Retain:              false,
+					Tiller:              true,
 				},
 			}))
 		})
@@ -203,7 +215,7 @@ var _ = Describe("Cluster", func() {
 					clientSet, err := kubernetes.NewForConfig(kconfig)
 					Ω(err).ShouldNot(HaveOccurred())
 
-					err = deploy.CreateResources(clName, clientSet, nginxDeploymentFile.String(), "Nginx")
+					err = deploy.Resources(clName, clientSet, nginxDeploymentFile.String(), "Nginx")
 					Ω(err).ShouldNot(HaveOccurred())
 
 					err = wait.ForDaemonSetReady(clName, clientSet, "default", "nginx-demo")
@@ -241,7 +253,7 @@ var _ = Describe("Cluster", func() {
 					clientSet, err := kubernetes.NewForConfig(kconfig)
 					Ω(err).ShouldNot(HaveOccurred())
 
-					err = deploy.CreateResources(clName, clientSet, netshootDeploymentFile.String(), "Netshoot")
+					err = deploy.Resources(clName, clientSet, netshootDeploymentFile.String(), "Netshoot")
 					Ω(err).ShouldNot(HaveOccurred())
 
 					err = wait.ForDaemonSetReady(clName, clientSet, "default", "netshoot")
@@ -256,7 +268,7 @@ var _ = Describe("Cluster", func() {
 			Expect(len(activeDeployments)).Should(Equal(3))
 		})
 		It("Should not create a new cluster", func() {
-			flags := config.CreateFlagpole{
+			flags := &armada.CreateFlagpole{
 				NumClusters: 3,
 			}
 
@@ -272,7 +284,7 @@ var _ = Describe("Cluster", func() {
 			}
 		})
 	})
-	Context("e2e: Cluster deletion", func() {
+	Context("Cluster deletion", func() {
 		It("Should destroy clusters 1 and 3 only", func() {
 			flags := armada.DestroyFlagpole{
 				Clusters: []string{config.ClusterNameBase + strconv.Itoa(1), config.ClusterNameBase + strconv.Itoa(3)},
@@ -320,20 +332,4 @@ var _ = Describe("Cluster", func() {
 			Expect(cl3Status).Should(BeFalse())
 		})
 	})
-})
-
-var _ = AfterSuite(func() {
-	provider := kind.NewProvider(
-		kind.ProviderWithLogger(kindcmd.NewLogger()),
-	)
-
-	configFiles, err := ioutil.ReadDir(config.KindConfigDir)
-	Ω(err).ShouldNot(HaveOccurred())
-
-	for _, file := range configFiles {
-		clName := strings.FieldsFunc(file.Name(), func(r rune) bool { return strings.ContainsRune(" -.", r) })[2]
-		err := cluster.Destroy(clName, provider)
-		Ω(err).ShouldNot(HaveOccurred())
-	}
-	_ = os.RemoveAll("./output")
 })

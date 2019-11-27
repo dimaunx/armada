@@ -1,24 +1,20 @@
 package cluster
 
 import (
-	"bytes"
 	"context"
 	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
 	"strings"
-	"text/template"
 
 	"github.com/dimaunx/armada/pkg/config"
 	dockertypes "github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
 	dockerclient "github.com/docker/docker/client"
-	"github.com/gobuffalo/packr/v2"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
-	kind "sigs.k8s.io/kind/pkg/cluster"
 )
 
 type kubeConfig struct {
@@ -145,108 +141,4 @@ func GetKubeConfigPath(clName string) (string, error) {
 	log.Debugf("Running in a host mode. ip: %s.", localAddr.IP)
 	kubeConfigFilePath := filepath.Join(currentDir, config.LocalKubeConfigDir, strings.Join([]string{"kind-config", clName}, "-"))
 	return kubeConfigFilePath, nil
-}
-
-// GetMasterDockerIP gets control plain master docker internal ip
-func GetMasterDockerIP(clName string) (string, error) {
-	ctx := context.Background()
-	dockerCli, err := dockerclient.NewEnvClient()
-	if err != nil {
-		return "", err
-	}
-
-	containerFilter := filters.NewArgs()
-	containerFilter.Add("name", strings.Join([]string{clName, "control-plane"}, "-"))
-	containers, err := dockerCli.ContainerList(ctx, dockertypes.ContainerListOptions{
-		Filters: containerFilter,
-		Limit:   1,
-	})
-	if err != nil {
-		return "", err
-	}
-	return containers[0].NetworkSettings.Networks["bridge"].IPAddress, nil
-}
-
-// iterate func map for config template
-func iterate(start, end int) (stream chan int) {
-	stream = make(chan int)
-	go func() {
-		for i := start; i <= end; i++ {
-			stream <- i
-		}
-		close(stream)
-	}()
-	return
-}
-
-// GenerateCalicoDeploymentFile generates calico deployment file from template
-func GenerateCalicoDeploymentFile(cl *config.Cluster, box *packr.Box) (string, error) {
-	calicoDeploymentTemplate, err := box.Resolve("tpl/calico-daemonset.yaml")
-	if err != nil {
-		return "", err
-	}
-
-	t, err := template.New("calico").Parse(calicoDeploymentTemplate.String())
-	if err != nil {
-		return "", err
-	}
-
-	var calicoDeploymentFile bytes.Buffer
-	err = t.Execute(&calicoDeploymentFile, cl)
-	if err != nil {
-		return "", err
-	}
-	return calicoDeploymentFile.String(), nil
-}
-
-// GenerateFlannelDeploymentFile generates flannel deployment file from template
-func GenerateFlannelDeploymentFile(cl *config.Cluster, box *packr.Box) (string, error) {
-	flannelDeploymentTemplate, err := box.Resolve("tpl/flannel-daemonset.yaml")
-	if err != nil {
-		return "", err
-	}
-
-	t, err := template.New("flannel").Parse(flannelDeploymentTemplate.String())
-	if err != nil {
-		return "", err
-	}
-
-	var flannelDeploymentFile bytes.Buffer
-	err = t.Execute(&flannelDeploymentFile, cl)
-	if err != nil {
-		return "", err
-	}
-	return flannelDeploymentFile.String(), nil
-}
-
-// GenerateWeaveDeploymentFile generates weave deployment file from template
-func GenerateWeaveDeploymentFile(cl *config.Cluster, box *packr.Box) (string, error) {
-	weaveDeploymentTemplate, err := box.Resolve("tpl/weave-daemonset.yaml")
-	if err != nil {
-		return "", err
-	}
-
-	t, err := template.New("weave").Parse(weaveDeploymentTemplate.String())
-	if err != nil {
-		return "", err
-	}
-
-	var weaveDeploymentFile bytes.Buffer
-	err = t.Execute(&weaveDeploymentFile, cl)
-	if err != nil {
-		return "", err
-	}
-	return weaveDeploymentFile.String(), nil
-}
-
-// IsKnown returns bool if cluster exists
-func IsKnown(clName string, provider *kind.Provider) (bool, error) {
-	n, err := provider.ListNodes(clName)
-	if err != nil {
-		return false, err
-	}
-	if len(n) != 0 {
-		return true, nil
-	}
-	return false, nil
 }

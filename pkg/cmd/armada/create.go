@@ -2,6 +2,7 @@ package armada
 
 import (
 	"io/ioutil"
+	"net"
 	"os/user"
 	"path/filepath"
 	"strconv"
@@ -9,7 +10,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Masterminds/semver"
 	"github.com/dimaunx/armada/pkg/cluster"
+	"github.com/pkg/errors"
+
 	"github.com/dimaunx/armada/pkg/config"
 	"github.com/gobuffalo/packr/v2"
 	log "github.com/sirupsen/logrus"
@@ -17,6 +21,103 @@ import (
 	kind "sigs.k8s.io/kind/pkg/cluster"
 	kindcmd "sigs.k8s.io/kind/pkg/cmd"
 )
+
+// CreateFlagpole is a list of cli flags for create clusters command
+type CreateFlagpole struct {
+	// ImageName is the node image used for cluster creation
+	ImageName string
+
+	// Wait is a time duration to wait until cluster is ready
+	Wait time.Duration
+
+	// Retain if you keep clusters running even if error occurs
+	Retain bool
+
+	// Weave if to install weave cni
+	Weave bool
+
+	// Flannel if to install flannel cni
+	Flannel bool
+
+	// Calico if to install calico cni
+	Calico bool
+
+	// Kindnet if to install kindnet default cni
+	Kindnet bool
+
+	// Debug if to enable debug log level
+	Debug bool
+
+	// DeployTiller if to install tiller
+	Tiller bool
+
+	// Overlap if to create clusters with overlapping cidrs
+	Overlap bool
+
+	// NumClusters is the number of clusters to create
+	NumClusters int
+}
+
+// PopulateClusterConfig return a desired cluster config object
+func PopulateClusterConfig(i int, flags *CreateFlagpole) (*config.Cluster, error) {
+
+	usr, err := user.Current()
+	if err != nil {
+		return nil, err
+	}
+
+	cl := &config.Cluster{
+		Name:                config.ClusterNameBase + strconv.Itoa(i),
+		NodeImageName:       flags.ImageName,
+		NumWorkers:          config.NumWorkers,
+		DNSDomain:           config.ClusterNameBase + strconv.Itoa(i) + ".local",
+		KubeAdminAPIVersion: config.KubeAdminAPIVersion,
+		Retain:              flags.Retain,
+		Tiller:              flags.Tiller,
+		KubeConfigFilePath:  filepath.Join(usr.HomeDir, ".kube", strings.Join([]string{"kind-config", config.ClusterNameBase + strconv.Itoa(i)}, "-")),
+	}
+
+	podIP := net.ParseIP(config.PodCidrBase)
+	podIP = podIP.To4()
+	serviceIP := net.ParseIP(config.ServiceCidrBase)
+	serviceIP = serviceIP.To4()
+
+	if !flags.Overlap {
+		podIP[1] += byte(4 * i)
+		serviceIP[1] += byte(i)
+	}
+
+	cl.PodSubnet = podIP.String() + config.PodCidrMask
+	cl.ServiceSubnet = serviceIP.String() + config.ServiceCidrMask
+
+	if flags.Weave {
+		cl.Cni = "weave"
+		cl.WaitForReady = 0
+	} else if flags.Calico {
+		cl.Cni = "calico"
+		cl.WaitForReady = 0
+	} else if flags.Flannel {
+		cl.Cni = "flannel"
+		cl.WaitForReady = 0
+	} else if flags.Kindnet {
+		cl.Cni = "kindnet"
+		cl.WaitForReady = flags.Wait
+	}
+
+	if flags.ImageName != "" {
+		tgt := semver.MustParse("1.15")
+		results := strings.Split(flags.ImageName, ":v")
+		if len(results) == 2 {
+			sver := semver.MustParse(results[len(results)-1])
+			if sver.LessThan(tgt) {
+				cl.KubeAdminAPIVersion = "kubeadm.k8s.io/v1beta1"
+			}
+		} else {
+			return nil, errors.Errorf("%q: Could not extract version from %s, split is by ':v', example of correct image name: kindest/node:v1.15.3.", cl.Name, flags.ImageName)
+		}
+	}
+	return cl, nil
+}
 
 // CreateCmd returns a new cobra.Command under the root command for armada
 func CreateCmd() *cobra.Command {
@@ -42,7 +143,7 @@ func CreateCmd() *cobra.Command {
 
 // CreateClustersCommand returns a new cobra.Command under create command for armada
 func CreateClustersCommand(provider *kind.Provider) *cobra.Command {
-	flags := &config.CreateFlagpole{}
+	flags := &CreateFlagpole{}
 	cmd := &cobra.Command{
 		Args:  cobra.NoArgs,
 		Use:   "clusters",
@@ -56,7 +157,7 @@ func CreateClustersCommand(provider *kind.Provider) *cobra.Command {
 			}
 
 			var clusters []*config.Cluster
-			box := packr.New("configs", "../../configs")
+			box := packr.New("configs", "../../../configs")
 			for i := 1; i <= flags.NumClusters; i++ {
 				clName := config.ClusterNameBase + strconv.Itoa(i)
 				known, err := cluster.IsKnown(clName, provider)
@@ -66,7 +167,7 @@ func CreateClustersCommand(provider *kind.Provider) *cobra.Command {
 				if known {
 					log.Infof("✔ Cluster with the name %q already exists.", clName)
 				} else {
-					cl, err := cluster.PopulateClusterConfig(i, flags)
+					cl, err := PopulateClusterConfig(i, flags)
 					if err != nil {
 						log.Fatal(err)
 					}
@@ -78,8 +179,7 @@ func CreateClustersCommand(provider *kind.Provider) *cobra.Command {
 			wg.Add(len(clusters))
 			for _, cl := range clusters {
 				go func(cl *config.Cluster) {
-
-					err := cluster.Create(cl, flags, provider, box, &wg)
+					err := cluster.Create(cl, provider, box, &wg)
 					if err != nil {
 						defer wg.Done()
 						log.Fatalf("%s: %s", cl.Name, err)
@@ -88,10 +188,11 @@ func CreateClustersCommand(provider *kind.Provider) *cobra.Command {
 			}
 			wg.Wait()
 
+			log.Info("Finalizing the clusters setup ...")
 			wg.Add(len(clusters))
 			for _, cl := range clusters {
 				go func(cl *config.Cluster) {
-					err := cluster.FinalizeSetup(cl, flags, box, &wg)
+					err := cluster.FinalizeSetup(cl, box, &wg)
 					if err != nil {
 						defer wg.Done()
 						log.Fatalf("%s: %s", cl.Name, err)

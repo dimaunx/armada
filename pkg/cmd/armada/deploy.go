@@ -2,15 +2,14 @@ package armada
 
 import (
 	"io/ioutil"
-	"os"
 	"strings"
 	"sync"
 
 	"github.com/dimaunx/armada/pkg/cluster"
-
-	"github.com/dimaunx/armada/pkg/config"
 	"github.com/dimaunx/armada/pkg/deploy"
 	"github.com/dimaunx/armada/pkg/wait"
+
+	"github.com/dimaunx/armada/pkg/config"
 	"github.com/gobuffalo/packr/v2"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -20,6 +19,7 @@ import (
 
 type deployFlagpole struct {
 	HostNetwork bool
+	Clusters    []string
 }
 
 // DeployCmd returns a new cobra.Command under root command for armada
@@ -53,7 +53,7 @@ func DeployNetshootCommand() *cobra.Command {
 			var netshootDeploymentFilePath string
 			var selector string
 
-			box := packr.New("configs", "../../configs")
+			box := packr.New("configs", "../../../configs")
 
 			if flags.HostNetwork {
 				netshootDeploymentFilePath = "debug/netshoot-daemonset-host.yaml"
@@ -68,16 +68,26 @@ func DeployNetshootCommand() *cobra.Command {
 				log.Error(err)
 			}
 
-			configFiles, err := ioutil.ReadDir(config.KindConfigDir)
-			if err != nil {
-				log.Fatal(err)
+			var targetClusters []string
+			if len(flags.Clusters) > 0 {
+				targetClusters = append(targetClusters, flags.Clusters...)
+			} else {
+
+				configFiles, err := ioutil.ReadDir(config.KindConfigDir)
+				if err != nil {
+					log.Fatal(err)
+				}
+
+				for _, configFile := range configFiles {
+					clName := strings.FieldsFunc(configFile.Name(), func(r rune) bool { return strings.ContainsRune(" -.", r) })[2]
+					targetClusters = append(targetClusters, clName)
+				}
 			}
 
 			var wg sync.WaitGroup
-			wg.Add(len(configFiles))
-			for _, file := range configFiles {
-				go func(file os.FileInfo) {
-					clName := strings.FieldsFunc(file.Name(), func(r rune) bool { return strings.ContainsRune(" -.", r) })[2]
+			wg.Add(len(targetClusters))
+			for _, clName := range targetClusters {
+				go func(clName string) {
 					kubeConfigFilePath, err := cluster.GetKubeConfigPath(clName)
 					if err != nil {
 						log.Fatalf("%s %s", clName, err)
@@ -93,7 +103,7 @@ func DeployNetshootCommand() *cobra.Command {
 						log.Fatalf("%s %s", clName, err)
 					}
 
-					err = deploy.CreateResources(clName, clientSet, netshootDeploymentFile.String(), "Netshoot")
+					err = deploy.Resources(clName, clientSet, netshootDeploymentFile.String(), "Netshoot")
 					if err != nil {
 						log.Fatalf("%s %s", clName, err)
 					}
@@ -103,18 +113,20 @@ func DeployNetshootCommand() *cobra.Command {
 						log.Fatalf("%s %s", clName, err)
 					}
 					wg.Done()
-				}(file)
+				}(clName)
 			}
 			wg.Wait()
 			return nil
 		},
 	}
 	cmd.Flags().BoolVar(&flags.HostNetwork, "host-network", false, "deploy the pods in host network mode.")
+	cmd.Flags().StringSliceVarP(&flags.Clusters, "cluster", "c", []string{}, "comma separated list of cluster names to deploy to. eg: cl1,cl6,cl3")
 	return cmd
 }
 
 // DeployNginxDemoCommand returns a new cobra.Command under deploy command for armada
 func DeployNginxDemoCommand() *cobra.Command {
+	flags := &deployFlagpole{}
 	cmd := &cobra.Command{
 		Args:  cobra.NoArgs,
 		Use:   "nginx-demo",
@@ -129,16 +141,26 @@ func DeployNginxDemoCommand() *cobra.Command {
 				log.Error(err)
 			}
 
-			configFiles, err := ioutil.ReadDir(config.KindConfigDir)
-			if err != nil {
-				log.Fatal(err)
+			var targetClusters []string
+			if len(flags.Clusters) > 0 {
+				targetClusters = append(targetClusters, flags.Clusters...)
+			} else {
+
+				configFiles, err := ioutil.ReadDir(config.KindConfigDir)
+				if err != nil {
+					log.Fatal(err)
+				}
+
+				for _, configFile := range configFiles {
+					clName := strings.FieldsFunc(configFile.Name(), func(r rune) bool { return strings.ContainsRune(" -.", r) })[2]
+					targetClusters = append(targetClusters, clName)
+				}
 			}
 
 			var wg sync.WaitGroup
-			wg.Add(len(configFiles))
-			for _, file := range configFiles {
-				go func(file os.FileInfo) {
-					clName := strings.FieldsFunc(file.Name(), func(r rune) bool { return strings.ContainsRune(" -.", r) })[2]
+			wg.Add(len(targetClusters))
+			for _, clName := range targetClusters {
+				go func(clName string) {
 					kubeConfigFilePath, err := cluster.GetKubeConfigPath(clName)
 					if err != nil {
 						log.Fatalf("%s %s", clName, err)
@@ -154,7 +176,7 @@ func DeployNginxDemoCommand() *cobra.Command {
 						log.Fatalf("%s %s", clName, err)
 					}
 
-					err = deploy.CreateResources(clName, clientSet, nginxDeploymentFile.String(), "Nginx")
+					err = deploy.Resources(clName, clientSet, nginxDeploymentFile.String(), "Nginx")
 					if err != nil {
 						log.Fatalf("%s %s", clName, err)
 					}
@@ -164,11 +186,12 @@ func DeployNginxDemoCommand() *cobra.Command {
 						log.Fatalf("%s %s", clName, err)
 					}
 					wg.Done()
-				}(file)
+				}(clName)
 			}
 			wg.Wait()
 			return nil
 		},
 	}
+	cmd.Flags().StringSliceVarP(&flags.Clusters, "cluster", "c", []string{}, "comma separated list of cluster names to deploy to. eg: cl1,cl6,cl3")
 	return cmd
 }

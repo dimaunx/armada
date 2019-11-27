@@ -1,24 +1,24 @@
 package cluster
 
 import (
+	"context"
 	"io/ioutil"
-	"net"
 	"os"
 	"os/user"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"text/template"
 
+	"github.com/dimaunx/armada/pkg/deploy"
 	"github.com/dimaunx/armada/pkg/wait"
-
+	"github.com/docker/docker/api/types/filters"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"github.com/Masterminds/semver"
 	"github.com/dimaunx/armada/pkg/config"
-	"github.com/dimaunx/armada/pkg/deploy"
+	dockertypes "github.com/docker/docker/api/types"
+	dockerclient "github.com/docker/docker/client"
 	"github.com/gobuffalo/packr/v2"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -28,7 +28,7 @@ import (
 )
 
 // Create creates cluster with kind
-func Create(cl *config.Cluster, flags *config.CreateFlagpole, provider *kind.Provider, box *packr.Box, wg *sync.WaitGroup) error {
+func Create(cl *config.Cluster, provider *kind.Provider, box *packr.Box, wg *sync.WaitGroup) error {
 	currentDir, err := os.Getwd()
 	if err != nil {
 		return err
@@ -55,10 +55,10 @@ func Create(cl *config.Cluster, flags *config.CreateFlagpole, provider *kind.Pro
 	if err = provider.Create(
 		cl.Name,
 		kind.CreateWithRawConfig(raw),
-		kind.CreateWithNodeImage(flags.ImageName),
+		kind.CreateWithNodeImage(cl.NodeImageName),
 		kind.CreateWithKubeconfigPath(cl.KubeConfigFilePath),
-		kind.CreateWithRetain(flags.Retain),
-		kind.CreateWithWaitForReady(flags.Wait),
+		kind.CreateWithRetain(cl.Retain),
+		kind.CreateWithWaitForReady(cl.WaitForReady),
 		kind.CreateWithDisplayUsage(false),
 		kind.CreateWithDisplaySalutation(false),
 	); err != nil {
@@ -74,61 +74,68 @@ func Create(cl *config.Cluster, flags *config.CreateFlagpole, provider *kind.Pro
 	return nil
 }
 
-// PopulateClusterConfig return a desired cluster object
-func PopulateClusterConfig(i int, flags *config.CreateFlagpole) (*config.Cluster, error) {
+// Destroy destroys a kind cluster
+func Destroy(clName string, provider *kind.Provider) error {
+	log.Infof("Deleting cluster %q ...\n", clName)
+	if err := provider.Delete(clName, ""); err != nil {
+		return errors.Wrapf(err, "failed to delete cluster %s", clName)
+	}
 
 	usr, err := user.Current()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	cl := &config.Cluster{
-		Name:                config.ClusterNameBase + strconv.Itoa(i),
-		NumWorkers:          config.NumWorkers,
-		DNSDomain:           config.ClusterNameBase + strconv.Itoa(i) + ".local",
-		KubeAdminAPIVersion: config.KubeAdminAPIVersion,
-		KubeConfigFilePath:  filepath.Join(usr.HomeDir, ".kube", strings.Join([]string{"kind-config", config.ClusterNameBase + strconv.Itoa(i)}, "-")),
+	_ = os.Remove(filepath.Join(config.KindConfigDir, "kind-config-"+clName+".yaml"))
+	_ = os.Remove(filepath.Join(config.LocalKubeConfigDir, "kind-config-"+clName))
+	_ = os.Remove(filepath.Join(config.ContainerKubeConfigDir, "kind-config-"+clName))
+	_ = os.RemoveAll(filepath.Join(usr.HomeDir, ".kube", strings.Join([]string{"kind-config", clName}, "-")))
+
+	return nil
+}
+
+// GetMasterDockerIP gets control plain master docker internal ip
+func GetMasterDockerIP(clName string) (string, error) {
+	ctx := context.Background()
+	dockerCli, err := dockerclient.NewEnvClient()
+	if err != nil {
+		return "", err
 	}
 
-	podIP := net.ParseIP(config.PodCidrBase)
-	podIP = podIP.To4()
-	serviceIP := net.ParseIP(config.ServiceCidrBase)
-	serviceIP = serviceIP.To4()
-
-	if !flags.Overlap {
-		podIP[1] += byte(4 * i)
-		serviceIP[1] += byte(i)
+	containerFilter := filters.NewArgs()
+	containerFilter.Add("name", strings.Join([]string{clName, "control-plane"}, "-"))
+	containers, err := dockerCli.ContainerList(ctx, dockertypes.ContainerListOptions{
+		Filters: containerFilter,
+		Limit:   1,
+	})
+	if err != nil {
+		return "", err
 	}
+	return containers[0].NetworkSettings.Networks["bridge"].IPAddress, nil
+}
 
-	cl.PodSubnet = podIP.String() + config.PodCidrMask
-	cl.ServiceSubnet = serviceIP.String() + config.ServiceCidrMask
-
-	if flags.Weave {
-		cl.Cni = "weave"
-		flags.Wait = 0
-	} else if flags.Calico {
-		cl.Cni = "calico"
-		flags.Wait = 0
-	} else if flags.Flannel {
-		cl.Cni = "flannel"
-		flags.Wait = 0
-	} else if flags.Kindnet {
-		cl.Cni = "kindnet"
-	}
-
-	if flags.ImageName != "" {
-		tgt := semver.MustParse("1.15")
-		results := strings.Split(flags.ImageName, ":v")
-		if len(results) == 2 {
-			sver := semver.MustParse(results[len(results)-1])
-			if sver.LessThan(tgt) {
-				cl.KubeAdminAPIVersion = "kubeadm.k8s.io/v1beta1"
-			}
-		} else {
-			return nil, errors.Errorf("%q: Could not extract version from %s, split is by ':v', example of correct image name: kindest/node:v1.15.3.", cl.Name, flags.ImageName)
+// iterate func map for config template
+func iterate(start, end int) (stream chan int) {
+	stream = make(chan int)
+	go func() {
+		for i := start; i <= end; i++ {
+			stream <- i
 		}
+		close(stream)
+	}()
+	return
+}
+
+// IsKnown returns bool if cluster exists
+func IsKnown(clName string, provider *kind.Provider) (bool, error) {
+	n, err := provider.ListNodes(clName)
+	if err != nil {
+		return false, err
 	}
-	return cl, nil
+	if len(n) != 0 {
+		return true, nil
+	}
+	return false, nil
 }
 
 // GenerateKindConfig creates kind config file and returns its path
@@ -162,7 +169,7 @@ func GenerateKindConfig(cl *config.Cluster, configDir string, box *packr.Box) (s
 }
 
 // FinalizeSetup creates custom environment
-func FinalizeSetup(cl *config.Cluster, flags *config.CreateFlagpole, box *packr.Box, wg *sync.WaitGroup) error {
+func FinalizeSetup(cl *config.Cluster, box *packr.Box, wg *sync.WaitGroup) error {
 	masterIP, err := GetMasterDockerIP(cl.Name)
 	if err != nil {
 		return err
@@ -193,7 +200,6 @@ func FinalizeSetup(cl *config.Cluster, flags *config.CreateFlagpole, box *packr.
 		return err
 	}
 
-	log.Infof("Finalizing %q cluster setup ...", cl.Name)
 	switch cl.Cni {
 	case "calico":
 		calicoDeploymentFile, err := GenerateCalicoDeploymentFile(cl, box)
@@ -206,12 +212,12 @@ func FinalizeSetup(cl *config.Cluster, flags *config.CreateFlagpole, box *packr.
 			return err
 		}
 
-		err = deploy.CreateCrdResources(cl.Name, apiExtClientSet, calicoCrdFile.String())
+		err = deploy.CrdResources(cl.Name, apiExtClientSet, calicoCrdFile.String())
 		if err != nil {
 			return err
 		}
 
-		err = deploy.CreateResources(cl.Name, clientSet, calicoDeploymentFile, "Calico")
+		err = deploy.Resources(cl.Name, clientSet, calicoDeploymentFile, "Calico")
 		if err != nil {
 			return err
 		}
@@ -231,7 +237,7 @@ func FinalizeSetup(cl *config.Cluster, flags *config.CreateFlagpole, box *packr.
 			return err
 		}
 
-		err = deploy.CreateResources(cl.Name, clientSet, flannelDeploymentFile, "Flannel")
+		err = deploy.Resources(cl.Name, clientSet, flannelDeploymentFile, "Flannel")
 		if err != nil {
 			return err
 		}
@@ -251,7 +257,7 @@ func FinalizeSetup(cl *config.Cluster, flags *config.CreateFlagpole, box *packr.
 			return err
 		}
 
-		err = deploy.CreateResources(cl.Name, clientSet, weaveDeploymentFile, "Weave")
+		err = deploy.Resources(cl.Name, clientSet, weaveDeploymentFile, "Weave")
 		if err != nil {
 			return err
 		}
@@ -267,8 +273,18 @@ func FinalizeSetup(cl *config.Cluster, flags *config.CreateFlagpole, box *packr.
 		}
 	}
 
-	if flags.Tiller {
-		err = deploy.Tiller(cl.Name, clientSet, box)
+	if cl.Tiller {
+		tillerDeploymentFile, err := box.Resolve("helm/tiller-deployment.yaml")
+		if err != nil {
+			return err
+		}
+
+		err = deploy.Resources(cl.Name, clientSet, tillerDeploymentFile.String(), "Tiller")
+		if err != nil {
+			return err
+		}
+
+		err = wait.ForDeploymentReady(cl.Name, clientSet, "kube-system", "tiller-deploy")
 		if err != nil {
 			return err
 		}
