@@ -77,7 +77,7 @@ docker:
 .PHONY: docker
 
 clean: fix-perm
-	rm -rf packrd debug packr2 $(OUTPUTDIR) $(GOBASE)/vendor $(GOBASE)/pkg/cmd/armada/armada-packr.go $(GOBASE)/pkg/*/*/*.cover* $(GOBASE)/pkg/*/output
+	rm -rf packrd debug packr2 $(OUTPUTDIR) $(GOBASE)/vendor $(GOBASE)/pkg/cmd/armada/armada-packr.go $(GOBASE)/pkg/*/*/*.cover* $(GOBASE)/pkg/*/*.cover* $(GOBASE)/pkg/*/output
 	-docker ps -qf status=exited | xargs docker rm -f
 	-docker ps -qaf name=$(PROJECTNAME)- | xargs docker rm -f
 	-docker images -qf dangling=true | xargs docker rmi -f
