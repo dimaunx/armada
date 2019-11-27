@@ -17,7 +17,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-type deployFlagpole struct {
+type DeployFlagpole struct {
 	HostNetwork bool
 	Clusters    []string
 }
@@ -43,7 +43,7 @@ func DeployCmd() *cobra.Command {
 
 // DeployNetshootCommand returns a new cobra.Command under deploy command for armada
 func DeployNetshootCommand() *cobra.Command {
-	flags := &deployFlagpole{}
+	flags := &DeployFlagpole{}
 	cmd := &cobra.Command{
 		Args:  cobra.NoArgs,
 		Use:   "netshoot",
@@ -126,7 +126,7 @@ func DeployNetshootCommand() *cobra.Command {
 
 // DeployNginxDemoCommand returns a new cobra.Command under deploy command for armada
 func DeployNginxDemoCommand() *cobra.Command {
-	flags := &deployFlagpole{}
+	flags := &DeployFlagpole{}
 	cmd := &cobra.Command{
 		Args:  cobra.NoArgs,
 		Use:   "nginx-demo",

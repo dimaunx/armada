@@ -192,20 +192,21 @@ var _ = Describe("E2E Tests", func() {
 				},
 			}))
 		})
-		It("Should deploy nginx-demo to all 3 clusters", func() {
-			box := packr.New("configs", "../../configs")
-			nginxDeploymentFile, err := box.Resolve("debug/nginx-demo-daemonset.yaml")
-			Ω(err).ShouldNot(HaveOccurred())
+		It("Should deploy nginx-demo to clusters 1 and 3", func() {
 
-			configFiles, err := ioutil.ReadDir(config.KindConfigDir)
+			flags := &armada.DeployFlagpole{
+				Clusters: []string{"cluster1", "cluster3"},
+			}
+
+			box := packr.New("configs", "../../../configs")
+			nginxDeploymentFile, err := box.Resolve("debug/nginx-demo-daemonset.yaml")
 			Ω(err).ShouldNot(HaveOccurred())
 
 			var activeDeployments []string
 			var wg sync.WaitGroup
-			wg.Add(len(configFiles))
-			for _, file := range configFiles {
-				go func(file os.FileInfo) {
-					clName := strings.FieldsFunc(file.Name(), func(r rune) bool { return strings.ContainsRune(" -.", r) })[2]
+			wg.Add(len(flags.Clusters))
+			for _, clName := range flags.Clusters {
+				go func(clName string) {
 					kubeConfigFilePath, err := cluster.GetKubeConfigPath(clName)
 					Ω(err).ShouldNot(HaveOccurred())
 
@@ -222,12 +223,11 @@ var _ = Describe("E2E Tests", func() {
 					Ω(err).ShouldNot(HaveOccurred())
 					activeDeployments = append(activeDeployments, clName)
 					wg.Done()
-				}(file)
+				}(clName)
 			}
 			wg.Wait()
 
-			Expect(len(configFiles)).Should(Equal(3))
-			Expect(len(activeDeployments)).Should(Equal(3))
+			Expect(len(activeDeployments)).Should(Equal(2))
 
 		})
 		It("Should deploy netshoot to all 3 clusters", func() {
