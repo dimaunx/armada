@@ -4,9 +4,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/dimaunx/armada/pkg/utils"
-
-	"github.com/gobuffalo/packr/v2"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
@@ -173,25 +170,6 @@ func CrdResources(clName string, apiExtClientSet apiextclientset.Interface, depl
 				}
 			}
 		}
-	}
-	return nil
-}
-
-// Tiller deploys tiller to the clusters
-func Tiller(clName string, clientSet kubernetes.Interface, box *packr.Box) error {
-	tillerDeploymentFile, err := box.Resolve("helm/tiller-deployment.yaml")
-	if err != nil {
-		return err
-	}
-
-	err = Resources(clName, clientSet, tillerDeploymentFile.String(), "Tiller")
-	if err != nil {
-		return err
-	}
-
-	err = utils.WaitForDeploymentReady(clName, clientSet, "kube-system", "tiller-deploy")
-	if err != nil {
-		return err
 	}
 	return nil
 }

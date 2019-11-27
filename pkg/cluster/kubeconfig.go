@@ -1,7 +1,13 @@
-package utils
+package cluster
 
 import (
 	"context"
+	"io/ioutil"
+	"net"
+	"os"
+	"path/filepath"
+	"strings"
+
 	"github.com/dimaunx/armada/pkg/config"
 	dockertypes "github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
@@ -9,11 +15,6 @@ import (
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
-	"io/ioutil"
-	"net"
-	"os"
-	"path/filepath"
-	"strings"
 )
 
 type kubeConfig struct {

@@ -12,7 +12,6 @@ import (
 
 	"github.com/Masterminds/semver"
 	"github.com/dimaunx/armada/pkg/cluster"
-	"github.com/dimaunx/armada/pkg/utils"
 	"github.com/pkg/errors"
 
 	"github.com/dimaunx/armada/pkg/config"
@@ -49,7 +48,7 @@ type CreateFlagpole struct {
 	// Debug if to enable debug log level
 	Debug bool
 
-	// Tiller if to install tiller
+	// DeployTiller if to install tiller
 	Tiller bool
 
 	// Overlap if to create clusters with overlapping cidrs
@@ -102,6 +101,7 @@ func PopulateClusterConfig(i int, flags *CreateFlagpole) (*config.Cluster, error
 		cl.WaitForReady = 0
 	} else if flags.Kindnet {
 		cl.Cni = "kindnet"
+		cl.WaitForReady = flags.Wait
 	}
 
 	if flags.ImageName != "" {
@@ -157,10 +157,10 @@ func CreateClustersCommand(provider *kind.Provider) *cobra.Command {
 			}
 
 			var clusters []*config.Cluster
-			box := packr.New("configs", "../../configs")
+			box := packr.New("configs", "../../../configs")
 			for i := 1; i <= flags.NumClusters; i++ {
 				clName := config.ClusterNameBase + strconv.Itoa(i)
-				known, err := utils.ClusterIsKnown(clName, provider)
+				known, err := cluster.IsKnown(clName, provider)
 				if err != nil {
 					log.Fatalf("%s: %v", clName, err)
 				}
@@ -212,7 +212,7 @@ func CreateClustersCommand(provider *kind.Provider) *cobra.Command {
 
 			for _, file := range files {
 				clName := strings.FieldsFunc(file.Name(), func(r rune) bool { return strings.ContainsRune(" -.", r) })[2]
-				known, err := utils.ClusterIsKnown(clName, provider)
+				known, err := cluster.IsKnown(clName, provider)
 				if err != nil {
 					log.Error(err)
 				}
@@ -226,12 +226,12 @@ func CreateClustersCommand(provider *kind.Provider) *cobra.Command {
 					kindKubeFileName := strings.Join([]string{"kind-config", cl.Name}, "-")
 					kindKubeFilePath := filepath.Join(usr.HomeDir, ".kube", kindKubeFileName)
 
-					masterIP, err := utils.GetMasterDockerIP(clName)
+					masterIP, err := cluster.GetMasterDockerIP(clName)
 					if err != nil {
 						log.Error(err)
 					}
 
-					err = utils.PrepareKubeConfigs(clName, kindKubeFilePath, masterIP)
+					err = cluster.PrepareKubeConfigs(clName, kindKubeFilePath, masterIP)
 					if err != nil {
 						log.Error(err)
 					}

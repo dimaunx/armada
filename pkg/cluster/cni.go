@@ -1,10 +1,11 @@
-package utils
+package cluster
 
 import (
 	"bytes"
+	"text/template"
+
 	"github.com/dimaunx/armada/pkg/config"
 	"github.com/gobuffalo/packr/v2"
-	"text/template"
 )
 
 // GenerateCalicoDeploymentFile generates calico deployment file from template
