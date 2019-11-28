@@ -45,7 +45,7 @@ func CreateEnvironment(flags *createclustercmd.CreateClusterFlagpole, provider *
 			return nil, err
 		}
 		if known {
-			log.Infof("✔ Config with the name %q already exists.", clName)
+			log.Infof("✔ Cluster with the name %q already exists.", clName)
 		} else {
 			cni := createclustercmd.GetCniFromFlags(flags)
 			cl, err := cluster.PopulateConfig(i, flags.ImageName, cni, flags.Retain, flags.Tiller, flags.Overlap, flags.Wait)
@@ -100,7 +100,7 @@ var _ = Describe("E2E Tests", func() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	Context("Config creation and deployment", func() {
+	Context("Cluster creation and deployment", func() {
 		It("Should create 2 clusters with flannel and overlapping cidrs", func() {
 			flags := &createclustercmd.CreateClusterFlagpole{
 				NumClusters: 2,
@@ -280,7 +280,7 @@ var _ = Describe("E2E Tests", func() {
 				known, err := cluster.IsKnown(clName, provider)
 				Ω(err).ShouldNot(HaveOccurred())
 				if known {
-					log.Infof("✔ Config with the name %q already exists.", clName)
+					log.Infof("✔ Cluster with the name %q already exists.", clName)
 				} else {
 					Fail("Attempted to create a new cluster, but should have skipped as cluster already exists")
 				}
