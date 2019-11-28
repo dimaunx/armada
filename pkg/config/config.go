@@ -22,14 +22,17 @@ const (
 	// NumWorkers is the number of worker nodes per cluster
 	NumWorkers = 2
 
+	// KindLogsDir is a default kind log files destination directory
+	KindLogsDir = "output/logs"
+
 	// KindConfigDir is a default kind config files destination directory
 	KindConfigDir = "output/kind-clusters"
 
 	// LocalKubeConfigDir is a default local workstation kubeconfig files destination directory
-	LocalKubeConfigDir = "output/kind-config/local-dev"
+	LocalKubeConfigDir = "output/kube-config/local-dev"
 
 	// LocalKubeConfigDir is a default  kubeconfig files destination directory if running inside container
-	ContainerKubeConfigDir = "output/kind-config/container"
+	ContainerKubeConfigDir = "output/kube-config/container"
 
 	// WaitDurationResources is a default timeout for waiter functions
 	WaitDurationResources = time.Duration(10) * time.Minute

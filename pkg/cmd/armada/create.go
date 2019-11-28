@@ -133,16 +133,12 @@ func CreateCmd() *cobra.Command {
 	log.SetFormatter(customFormatter)
 	customFormatter.FullTimestamp = true
 
-	provider := kind.NewProvider(
-		kind.ProviderWithLogger(kindcmd.NewLogger()),
-	)
-
-	cmd.AddCommand(CreateClustersCommand(provider))
+	cmd.AddCommand(CreateClustersCommand())
 	return cmd
 }
 
 // CreateClustersCommand returns a new cobra.Command under create command for armada
-func CreateClustersCommand(provider *kind.Provider) *cobra.Command {
+func CreateClustersCommand() *cobra.Command {
 	flags := &CreateFlagpole{}
 	cmd := &cobra.Command{
 		Args:  cobra.NoArgs,
@@ -150,6 +146,10 @@ func CreateClustersCommand(provider *kind.Provider) *cobra.Command {
 		Short: "Creates multiple kubernetes clusters",
 		Long:  "Creates multiple kubernetes clusters using Docker container 'nodes'",
 		RunE: func(cmd *cobra.Command, args []string) error {
+
+			provider := kind.NewProvider(
+				kind.ProviderWithLogger(kindcmd.NewLogger()),
+			)
 
 			if flags.Debug {
 				log.SetLevel(log.DebugLevel)
@@ -237,7 +237,7 @@ func CreateClustersCommand(provider *kind.Provider) *cobra.Command {
 					}
 				}
 			}
-			log.Infof("✔ Kubeconfigs: export KUBECONFIG=$(echo ./output/kind-config/local-dev/kind-config-%s{1..%v} | sed 's/ /:/g')", config.ClusterNameBase, flags.NumClusters)
+			log.Infof("✔ Kubeconfigs: export KUBECONFIG=$(echo ./%s/kind-config-%s{1..%v} | sed 's/ /:/g')", config.LocalKubeConfigDir, config.ClusterNameBase, flags.NumClusters)
 		},
 	}
 	cmd.Flags().StringVarP(&flags.ImageName, "image", "i", "", "node docker image to use for booting the cluster")

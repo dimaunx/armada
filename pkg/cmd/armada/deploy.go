@@ -17,6 +17,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
+// DeployFlagpole is a list of cli flags for deploy command
 type DeployFlagpole struct {
 	HostNetwork bool
 	Clusters    []string

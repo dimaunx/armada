@@ -90,6 +90,7 @@ func Destroy(clName string, provider *kind.Provider) error {
 	_ = os.Remove(filepath.Join(config.LocalKubeConfigDir, "kind-config-"+clName))
 	_ = os.Remove(filepath.Join(config.ContainerKubeConfigDir, "kind-config-"+clName))
 	_ = os.RemoveAll(filepath.Join(usr.HomeDir, ".kube", strings.Join([]string{"kind-config", clName}, "-")))
+	_ = os.RemoveAll(filepath.Join(config.KindLogsDir, clName))
 
 	return nil
 }
