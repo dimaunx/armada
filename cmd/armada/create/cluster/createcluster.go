@@ -165,6 +165,7 @@ func CreateClustersCommand(provider *kind.Provider, box *packr.Box) *cobra.Comma
 	return cmd
 }
 
+// GetCniFromFlags returns the cni name from flags
 func GetCniFromFlags(flags *CreateClusterFlagpole) string {
 	var cni string
 	if flags.Weave {
