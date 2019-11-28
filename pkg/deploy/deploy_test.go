@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/dimaunx/armada/pkg/cluster"
-	"github.com/dimaunx/armada/pkg/config"
 	"github.com/dimaunx/armada/pkg/deploy"
 	"github.com/gobuffalo/packr/v2"
 	. "github.com/onsi/ginkgo"
@@ -16,7 +15,7 @@ import (
 
 func TestDeployment(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Cluster test suite")
+	RunSpecs(t, "Config test suite")
 }
 
 var _ = Describe("Deploy tests", func() {
@@ -26,14 +25,14 @@ var _ = Describe("Deploy tests", func() {
 	Context("Deployment tests", func() {
 		It("Should deploy weave resources", func() {
 
-			cl := config.Cluster{
+			cl := &cluster.Config{
 				Name:      "cl1",
 				PodSubnet: "1.2.3.4/8",
 			}
 
 			clientSet := testclient.NewSimpleClientset()
 
-			deployfile, err := cluster.GenerateWeaveDeploymentFile(&cl, box)
+			deployfile, err := cluster.GenerateWeaveDeploymentFile(cl, box)
 			Ω(err).ShouldNot(HaveOccurred())
 
 			err = deploy.Resources(cl.Name, clientSet, deployfile, "Weave")
@@ -48,14 +47,14 @@ var _ = Describe("Deploy tests", func() {
 		})
 		It("Should deploy flannel resources", func() {
 
-			cl := config.Cluster{
+			cl := &cluster.Config{
 				Name:      "cl1",
 				PodSubnet: "1.2.3.4/16",
 			}
 
 			clientSet := testclient.NewSimpleClientset()
 
-			deployfile, err := cluster.GenerateFlannelDeploymentFile(&cl, box)
+			deployfile, err := cluster.GenerateFlannelDeploymentFile(cl, box)
 			Ω(err).ShouldNot(HaveOccurred())
 
 			err = deploy.Resources(cl.Name, clientSet, deployfile, "Flannel")
@@ -69,14 +68,14 @@ var _ = Describe("Deploy tests", func() {
 		})
 		It("Should deploy calico resources", func() {
 
-			cl := config.Cluster{
+			cl := &cluster.Config{
 				Name:      "cl1",
 				PodSubnet: "1.2.3.4/4",
 			}
 
 			clientSet := testclient.NewSimpleClientset()
 
-			deployfile, err := cluster.GenerateCalicoDeploymentFile(&cl, box)
+			deployfile, err := cluster.GenerateCalicoDeploymentFile(cl, box)
 			Ω(err).ShouldNot(HaveOccurred())
 
 			err = deploy.Resources(cl.Name, clientSet, deployfile, "Calico")

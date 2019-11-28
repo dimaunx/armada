@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/dimaunx/armada/pkg/config"
+	"github.com/dimaunx/armada/pkg/defaults"
 	dockertypes "github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
 	dockerclient "github.com/docker/docker/client"
@@ -51,11 +51,11 @@ func PrepareKubeConfigs(clName string, sourceKubeConfigFilePath, masterIP string
 	var kubeconf kubeConfig
 	currentDir, _ := os.Getwd()
 
-	_ = os.MkdirAll(config.LocalKubeConfigDir, os.ModePerm)
-	_ = os.MkdirAll(config.ContainerKubeConfigDir, os.ModePerm)
+	_ = os.MkdirAll(defaults.LocalKubeConfigDir, os.ModePerm)
+	_ = os.MkdirAll(defaults.ContainerKubeConfigDir, os.ModePerm)
 	kindKubeFileName := strings.Join([]string{"kind-config", clName}, "-")
-	newLocalKubeFilePath := filepath.Join(currentDir, config.LocalKubeConfigDir, kindKubeFileName)
-	newContainerKubeFilePath := filepath.Join(currentDir, config.ContainerKubeConfigDir, kindKubeFileName)
+	newLocalKubeFilePath := filepath.Join(currentDir, defaults.LocalKubeConfigDir, kindKubeFileName)
+	newContainerKubeFilePath := filepath.Join(currentDir, defaults.ContainerKubeConfigDir, kindKubeFileName)
 
 	sourceKubeFile, err := ioutil.ReadFile(sourceKubeConfigFilePath)
 	if err != nil {
@@ -134,11 +134,11 @@ func GetKubeConfigPath(clName string) (string, error) {
 
 		if ipNet.Contains(localAddr.IP) {
 			log.Debugf("Running in a container. Bridge network: %s, ip: %s.	", dockerNet, localAddr.IP)
-			kubeConfigFilePath := filepath.Join(currentDir, config.ContainerKubeConfigDir, strings.Join([]string{"kind-config", clName}, "-"))
+			kubeConfigFilePath := filepath.Join(currentDir, defaults.ContainerKubeConfigDir, strings.Join([]string{"kind-config", clName}, "-"))
 			return kubeConfigFilePath, nil
 		}
 	}
 	log.Debugf("Running in a host mode. ip: %s.", localAddr.IP)
-	kubeConfigFilePath := filepath.Join(currentDir, config.LocalKubeConfigDir, strings.Join([]string{"kind-config", clName}, "-"))
+	kubeConfigFilePath := filepath.Join(currentDir, defaults.LocalKubeConfigDir, strings.Join([]string{"kind-config", clName}, "-"))
 	return kubeConfigFilePath, nil
 }

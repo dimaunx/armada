@@ -9,8 +9,9 @@ import (
 	"path/filepath"
 	"testing"
 
+	createclustercmd "github.com/dimaunx/armada/cmd/armada/create/cluster"
+
 	"github.com/dimaunx/armada/pkg/cluster"
-	"github.com/dimaunx/armada/pkg/cmd/armada"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
@@ -19,7 +20,6 @@ import (
 
 	"github.com/gobuffalo/packr/v2"
 
-	"github.com/dimaunx/armada/pkg/config"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -29,7 +29,7 @@ func TestCluster(t *testing.T) {
 	RunSpecs(t, "Cluster test suite")
 }
 
-var _ = Describe("Cluster utils", func() {
+var _ = Describe("cluster tests", func() {
 
 	box := packr.New("configs", "../../configs")
 
@@ -38,7 +38,7 @@ var _ = Describe("Cluster utils", func() {
 			currentDir, err := os.Getwd()
 			Ω(err).ShouldNot(HaveOccurred())
 
-			cl := config.Cluster{
+			cl := &cluster.Config{
 				Cni:                 "kindnet",
 				Name:                "default",
 				PodSubnet:           "10.4.0.0/14",
@@ -50,7 +50,7 @@ var _ = Describe("Cluster utils", func() {
 
 			configDir := filepath.Join(currentDir, "testdata/kind")
 			gf := filepath.Join(configDir, "default_cni.golden")
-			configPath, err := cluster.GenerateKindConfig(&cl, configDir, box)
+			configPath, err := cluster.GenerateKindConfig(cl, configDir, box)
 			Ω(err).ShouldNot(HaveOccurred())
 
 			golden, err := ioutil.ReadFile(gf)
@@ -66,7 +66,7 @@ var _ = Describe("Cluster utils", func() {
 			currentDir, err := os.Getwd()
 			Ω(err).ShouldNot(HaveOccurred())
 
-			cl := config.Cluster{
+			cl := &cluster.Config{
 				Cni:                 "weave",
 				Name:                "custom",
 				PodSubnet:           "10.4.0.0/14",
@@ -78,7 +78,7 @@ var _ = Describe("Cluster utils", func() {
 
 			configDir := filepath.Join(currentDir, "testdata/kind")
 			gf := filepath.Join(configDir, "custom_cni.golden")
-			configPath, err := cluster.GenerateKindConfig(&cl, configDir, box)
+			configPath, err := cluster.GenerateKindConfig(cl, configDir, box)
 			Ω(err).ShouldNot(HaveOccurred())
 
 			golden, err := ioutil.ReadFile(gf)
@@ -94,7 +94,7 @@ var _ = Describe("Cluster utils", func() {
 			currentDir, err := os.Getwd()
 			Ω(err).ShouldNot(HaveOccurred())
 
-			cl := config.Cluster{
+			cl := &cluster.Config{
 				Cni:                 "flannel",
 				Name:                "custom",
 				PodSubnet:           "10.4.0.0/14",
@@ -106,7 +106,7 @@ var _ = Describe("Cluster utils", func() {
 
 			configDir := filepath.Join(currentDir, "testdata/kind")
 			gf := filepath.Join(configDir, "custom_five_workers.golden")
-			configPath, err := cluster.GenerateKindConfig(&cl, configDir, box)
+			configPath, err := cluster.GenerateKindConfig(cl, configDir, box)
 			Ω(err).ShouldNot(HaveOccurred())
 
 			golden, err := ioutil.ReadFile(gf)
@@ -120,7 +120,7 @@ var _ = Describe("Cluster utils", func() {
 		})
 		It("Should generate correct kind config for cluster with k8s version lower then 1.15", func() {
 
-			flags := &armada.CreateFlagpole{
+			flags := &createclustercmd.CreateClusterFlagpole{
 				ImageName: "test/test:v1.13.2",
 				Kindnet:   true,
 			}
@@ -128,7 +128,8 @@ var _ = Describe("Cluster utils", func() {
 			currentDir, err := os.Getwd()
 			Ω(err).ShouldNot(HaveOccurred())
 
-			cl, err := armada.PopulateClusterConfig(1, flags)
+			cni := createclustercmd.GetCniFromFlags(flags)
+			cl, err := cluster.PopulateConfig(1, flags.ImageName, cni, true, true, false, 0)
 			Ω(err).ShouldNot(HaveOccurred())
 
 			configDir := filepath.Join(currentDir, "testdata/kind")
@@ -149,7 +150,7 @@ var _ = Describe("Cluster utils", func() {
 		})
 		It("Should generate correct kind config for cluster with k8s version higher then 1.15", func() {
 
-			flags := &armada.CreateFlagpole{
+			flags := &createclustercmd.CreateClusterFlagpole{
 				ImageName: "test/test:v1.16.2",
 				Kindnet:   true,
 			}
@@ -157,7 +158,8 @@ var _ = Describe("Cluster utils", func() {
 			currentDir, err := os.Getwd()
 			Ω(err).ShouldNot(HaveOccurred())
 
-			cl, err := armada.PopulateClusterConfig(1, flags)
+			cni := createclustercmd.GetCniFromFlags(flags)
+			cl, err := cluster.PopulateConfig(1, flags.ImageName, cni, true, true, false, 0)
 			Ω(err).ShouldNot(HaveOccurred())
 
 			configDir := filepath.Join(currentDir, "testdata/kind")

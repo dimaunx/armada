@@ -1,4 +1,4 @@
-package config
+package defaults
 
 import "time"
 
@@ -40,42 +40,3 @@ const (
 	// KubeAdminAPIVersion is a default version used by in kind configs
 	KubeAdminAPIVersion = "kubeadm.k8s.io/v1beta2"
 )
-
-// Cluster type
-type Cluster struct {
-	// Cni is a name of the cni that will be installed for a cluster
-	Cni string
-
-	// Name is a cluster name
-	Name string
-
-	// PodSubnet is pod subnet cidr and mask
-	PodSubnet string
-
-	// ServiceSubnet is a service subnet cidr and mask
-	ServiceSubnet string
-
-	// DNSDomain is cluster dns domain name
-	DNSDomain string
-
-	// // KubeAdminAPIVersion for each cluster
-	KubeAdminAPIVersion string
-
-	// NumWorkers is the number of worker nodes
-	NumWorkers int
-
-	// KubeConfigFilePath is the destination where kind will generate the original kubeconfig file
-	KubeConfigFilePath string
-
-	// Amount of time to wait for control plain to be ready
-	WaitForReady time.Duration
-
-	// Cluster image name
-	NodeImageName string
-
-	// Retain if to retain the cluster despite and error
-	Retain bool
-
-	// Tiller if to deploy a cluster with tiller
-	Tiller bool
-}

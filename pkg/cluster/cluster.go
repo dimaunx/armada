@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"text/template"
 
 	"github.com/dimaunx/armada/pkg/deploy"
 	"github.com/dimaunx/armada/pkg/wait"
@@ -16,7 +15,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"github.com/dimaunx/armada/pkg/config"
+	"github.com/dimaunx/armada/pkg/defaults"
 	dockertypes "github.com/docker/docker/api/types"
 	dockerclient "github.com/docker/docker/client"
 	"github.com/gobuffalo/packr/v2"
@@ -28,13 +27,13 @@ import (
 )
 
 // Create creates cluster with kind
-func Create(cl *config.Cluster, provider *kind.Provider, box *packr.Box, wg *sync.WaitGroup) error {
+func Create(cl *Config, provider *kind.Provider, box *packr.Box, wg *sync.WaitGroup) error {
 	currentDir, err := os.Getwd()
 	if err != nil {
 		return err
 	}
 
-	configDir := filepath.Join(currentDir, config.KindConfigDir)
+	configDir := filepath.Join(currentDir, defaults.KindConfigDir)
 	err = os.MkdirAll(configDir, os.ModePerm)
 	if err != nil {
 		return err
@@ -86,11 +85,11 @@ func Destroy(clName string, provider *kind.Provider) error {
 		return err
 	}
 
-	_ = os.Remove(filepath.Join(config.KindConfigDir, "kind-config-"+clName+".yaml"))
-	_ = os.Remove(filepath.Join(config.LocalKubeConfigDir, "kind-config-"+clName))
-	_ = os.Remove(filepath.Join(config.ContainerKubeConfigDir, "kind-config-"+clName))
+	_ = os.Remove(filepath.Join(defaults.KindConfigDir, "kind-config-"+clName+".yaml"))
+	_ = os.Remove(filepath.Join(defaults.LocalKubeConfigDir, "kind-config-"+clName))
+	_ = os.Remove(filepath.Join(defaults.ContainerKubeConfigDir, "kind-config-"+clName))
 	_ = os.RemoveAll(filepath.Join(usr.HomeDir, ".kube", strings.Join([]string{"kind-config", clName}, "-")))
-	_ = os.RemoveAll(filepath.Join(config.KindLogsDir, clName))
+	_ = os.RemoveAll(filepath.Join(defaults.KindLogsDir, clName))
 
 	return nil
 }
@@ -139,38 +138,8 @@ func IsKnown(clName string, provider *kind.Provider) (bool, error) {
 	return false, nil
 }
 
-// GenerateKindConfig creates kind config file and returns its path
-func GenerateKindConfig(cl *config.Cluster, configDir string, box *packr.Box) (string, error) {
-	kindConfigFileTemplate, err := box.Resolve("tpl/cluster-config.yaml")
-	if err != nil {
-		return "", err
-	}
-
-	t, err := template.New("config").Funcs(template.FuncMap{"iterate": iterate}).Parse(kindConfigFileTemplate.String())
-	if err != nil {
-		return "", err
-	}
-
-	kindConfigFilePath := filepath.Join(configDir, "kind-config-"+cl.Name+".yaml")
-	f, err := os.Create(kindConfigFilePath)
-	if err != nil {
-		return "", err
-	}
-
-	err = t.Execute(f, cl)
-	if err != nil {
-		return "", err
-	}
-
-	if err := f.Close(); err != nil {
-		return "", err
-	}
-	log.Debugf("Cluster config file for %s generated.", cl.Name)
-	return kindConfigFilePath, nil
-}
-
 // FinalizeSetup creates custom environment
-func FinalizeSetup(cl *config.Cluster, box *packr.Box, wg *sync.WaitGroup) error {
+func FinalizeSetup(cl *Config, box *packr.Box, wg *sync.WaitGroup) error {
 	masterIP, err := GetMasterDockerIP(cl.Name)
 	if err != nil {
 		return err

@@ -1,8 +1,7 @@
-package armada
+package cluster
 
 import (
 	"io/ioutil"
-	"net"
 	"os/user"
 	"path/filepath"
 	"strconv"
@@ -10,20 +9,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Masterminds/semver"
 	"github.com/dimaunx/armada/pkg/cluster"
-	"github.com/pkg/errors"
-
-	"github.com/dimaunx/armada/pkg/config"
+	"github.com/dimaunx/armada/pkg/defaults"
 	"github.com/gobuffalo/packr/v2"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	kind "sigs.k8s.io/kind/pkg/cluster"
-	kindcmd "sigs.k8s.io/kind/pkg/cmd"
 )
 
-// CreateFlagpole is a list of cli flags for create clusters command
-type CreateFlagpole struct {
+// CreateClusterFlagpole is a list of cli flags for create clusters command
+type CreateClusterFlagpole struct {
 	// ImageName is the node image used for cluster creation
 	ImageName string
 
@@ -45,101 +40,22 @@ type CreateFlagpole struct {
 	// Kindnet if to install kindnet default cni
 	Kindnet bool
 
-	// Debug if to enable debug log level
-	Debug bool
-
 	// DeployTiller if to install tiller
 	Tiller bool
 
 	// Overlap if to create clusters with overlapping cidrs
 	Overlap bool
 
+	// Debug sets log level to debug
+	Debug bool
+
 	// NumClusters is the number of clusters to create
 	NumClusters int
 }
 
-// PopulateClusterConfig return a desired cluster config object
-func PopulateClusterConfig(i int, flags *CreateFlagpole) (*config.Cluster, error) {
-
-	usr, err := user.Current()
-	if err != nil {
-		return nil, err
-	}
-
-	cl := &config.Cluster{
-		Name:                config.ClusterNameBase + strconv.Itoa(i),
-		NodeImageName:       flags.ImageName,
-		NumWorkers:          config.NumWorkers,
-		DNSDomain:           config.ClusterNameBase + strconv.Itoa(i) + ".local",
-		KubeAdminAPIVersion: config.KubeAdminAPIVersion,
-		Retain:              flags.Retain,
-		Tiller:              flags.Tiller,
-		KubeConfigFilePath:  filepath.Join(usr.HomeDir, ".kube", strings.Join([]string{"kind-config", config.ClusterNameBase + strconv.Itoa(i)}, "-")),
-	}
-
-	podIP := net.ParseIP(config.PodCidrBase)
-	podIP = podIP.To4()
-	serviceIP := net.ParseIP(config.ServiceCidrBase)
-	serviceIP = serviceIP.To4()
-
-	if !flags.Overlap {
-		podIP[1] += byte(4 * i)
-		serviceIP[1] += byte(i)
-	}
-
-	cl.PodSubnet = podIP.String() + config.PodCidrMask
-	cl.ServiceSubnet = serviceIP.String() + config.ServiceCidrMask
-
-	if flags.Weave {
-		cl.Cni = "weave"
-		cl.WaitForReady = 0
-	} else if flags.Calico {
-		cl.Cni = "calico"
-		cl.WaitForReady = 0
-	} else if flags.Flannel {
-		cl.Cni = "flannel"
-		cl.WaitForReady = 0
-	} else if flags.Kindnet {
-		cl.Cni = "kindnet"
-		cl.WaitForReady = flags.Wait
-	}
-
-	if flags.ImageName != "" {
-		tgt := semver.MustParse("1.15")
-		results := strings.Split(flags.ImageName, ":v")
-		if len(results) == 2 {
-			sver := semver.MustParse(results[len(results)-1])
-			if sver.LessThan(tgt) {
-				cl.KubeAdminAPIVersion = "kubeadm.k8s.io/v1beta1"
-			}
-		} else {
-			return nil, errors.Errorf("%q: Could not extract version from %s, split is by ':v', example of correct image name: kindest/node:v1.15.3.", cl.Name, flags.ImageName)
-		}
-	}
-	return cl, nil
-}
-
-// CreateCmd returns a new cobra.Command under the root command for armada
-func CreateCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Args:  cobra.NoArgs,
-		Use:   "create",
-		Short: "Creates e2e environment",
-		Long:  "Creates multiple kind clusters",
-	}
-
-	customFormatter := new(log.TextFormatter)
-	customFormatter.TimestampFormat = "2006-01-02 15:04:05"
-	log.SetFormatter(customFormatter)
-	customFormatter.FullTimestamp = true
-
-	cmd.AddCommand(CreateClustersCommand())
-	return cmd
-}
-
 // CreateClustersCommand returns a new cobra.Command under create command for armada
-func CreateClustersCommand() *cobra.Command {
-	flags := &CreateFlagpole{}
+func CreateClustersCommand(provider *kind.Provider, box *packr.Box) *cobra.Command {
+	flags := &CreateClusterFlagpole{}
 	cmd := &cobra.Command{
 		Args:  cobra.NoArgs,
 		Use:   "clusters",
@@ -147,19 +63,14 @@ func CreateClustersCommand() *cobra.Command {
 		Long:  "Creates multiple kubernetes clusters using Docker container 'nodes'",
 		RunE: func(cmd *cobra.Command, args []string) error {
 
-			provider := kind.NewProvider(
-				kind.ProviderWithLogger(kindcmd.NewLogger()),
-			)
-
 			if flags.Debug {
 				log.SetLevel(log.DebugLevel)
 				//log.SetReportCaller(true)
 			}
 
-			var clusters []*config.Cluster
-			box := packr.New("configs", "../../../configs")
+			var clusters []*cluster.Config
 			for i := 1; i <= flags.NumClusters; i++ {
-				clName := config.ClusterNameBase + strconv.Itoa(i)
+				clName := defaults.ClusterNameBase + strconv.Itoa(i)
 				known, err := cluster.IsKnown(clName, provider)
 				if err != nil {
 					log.Fatalf("%s: %v", clName, err)
@@ -167,7 +78,8 @@ func CreateClustersCommand() *cobra.Command {
 				if known {
 					log.Infof("✔ Cluster with the name %q already exists.", clName)
 				} else {
-					cl, err := PopulateClusterConfig(i, flags)
+					cni := GetCniFromFlags(flags)
+					cl, err := cluster.PopulateConfig(i, flags.ImageName, cni, flags.Retain, flags.Tiller, flags.Overlap, flags.Wait)
 					if err != nil {
 						log.Fatal(err)
 					}
@@ -178,7 +90,7 @@ func CreateClustersCommand() *cobra.Command {
 			var wg sync.WaitGroup
 			wg.Add(len(clusters))
 			for _, cl := range clusters {
-				go func(cl *config.Cluster) {
+				go func(cl *cluster.Config) {
 					err := cluster.Create(cl, provider, box, &wg)
 					if err != nil {
 						defer wg.Done()
@@ -191,7 +103,7 @@ func CreateClustersCommand() *cobra.Command {
 			log.Info("Finalizing the clusters setup ...")
 			wg.Add(len(clusters))
 			for _, cl := range clusters {
-				go func(cl *config.Cluster) {
+				go func(cl *cluster.Config) {
 					err := cluster.FinalizeSetup(cl, box, &wg)
 					if err != nil {
 						defer wg.Done()
@@ -203,7 +115,7 @@ func CreateClustersCommand() *cobra.Command {
 			return nil
 		},
 		PersistentPostRun: func(cmd *cobra.Command, args []string) {
-			files, err := ioutil.ReadDir(config.KindConfigDir)
+			files, err := ioutil.ReadDir(defaults.KindConfigDir)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -217,13 +129,12 @@ func CreateClustersCommand() *cobra.Command {
 					log.Error(err)
 				}
 				if !known {
-					cl := &config.Cluster{Name: clName}
 					usr, err := user.Current()
 					if err != nil {
 						log.Error(err)
 					}
 
-					kindKubeFileName := strings.Join([]string{"kind-config", cl.Name}, "-")
+					kindKubeFileName := strings.Join([]string{"kind-config", clName}, "-")
 					kindKubeFilePath := filepath.Join(usr.HomeDir, ".kube", kindKubeFileName)
 
 					masterIP, err := cluster.GetMasterDockerIP(clName)
@@ -237,7 +148,7 @@ func CreateClustersCommand() *cobra.Command {
 					}
 				}
 			}
-			log.Infof("✔ Kubeconfigs: export KUBECONFIG=$(echo ./%s/kind-config-%s{1..%v} | sed 's/ /:/g')", config.LocalKubeConfigDir, config.ClusterNameBase, flags.NumClusters)
+			log.Infof("✔ Kubeconfigs: export KUBECONFIG=$(echo ./%s/kind-config-%s{1..%v} | sed 's/ /:/g')", defaults.LocalKubeConfigDir, defaults.ClusterNameBase, flags.NumClusters)
 		},
 	}
 	cmd.Flags().StringVarP(&flags.ImageName, "image", "i", "", "node docker image to use for booting the cluster")
@@ -247,9 +158,23 @@ func CreateClustersCommand() *cobra.Command {
 	cmd.Flags().BoolVarP(&flags.Calico, "calico", "c", false, "deploy with calico")
 	cmd.Flags().BoolVarP(&flags.Kindnet, "kindnet", "k", true, "deploy with kindnet default cni")
 	cmd.Flags().BoolVarP(&flags.Flannel, "flannel", "f", false, "deploy with flannel")
-	cmd.Flags().BoolVarP(&flags.Debug, "debug", "v", false, "set log level to debug")
 	cmd.Flags().BoolVarP(&flags.Overlap, "overlap", "o", false, "create clusters with overlapping cidrs")
+	cmd.Flags().BoolVarP(&flags.Debug, "debug", "v", false, "set log level to debug")
 	cmd.Flags().DurationVar(&flags.Wait, "wait", 5*time.Minute, "amount of minutes to wait for control plane nodes to be ready")
 	cmd.Flags().IntVarP(&flags.NumClusters, "num", "n", 2, "number of clusters to create")
 	return cmd
+}
+
+func GetCniFromFlags(flags *CreateClusterFlagpole) string {
+	var cni string
+	if flags.Weave {
+		cni = "weave"
+	} else if flags.Flannel {
+		cni = "flannel"
+	} else if flags.Calico {
+		cni = "calico"
+	} else if flags.Kindnet {
+		cni = "kindnet"
+	}
+	return cni
 }

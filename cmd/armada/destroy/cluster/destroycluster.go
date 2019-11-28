@@ -1,47 +1,24 @@
-package armada
+package cluster
 
 import (
 	"io/ioutil"
 	"strings"
 
 	"github.com/dimaunx/armada/pkg/cluster"
-	"github.com/dimaunx/armada/pkg/config"
+	"github.com/dimaunx/armada/pkg/defaults"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	kind "sigs.k8s.io/kind/pkg/cluster"
-	kindcmd "sigs.k8s.io/kind/pkg/cmd"
 )
 
-// DestroyFlagpole flags for destroy command
-type DestroyFlagpole struct {
+// DestroyClusterFlagpole is a list of cli flags for destroy clusters command
+type DestroyClusterFlagpole struct {
 	Clusters []string
-}
-
-// DestroyCmd returns a new cobra.Command under root command for armada
-func DestroyCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Args:  cobra.NoArgs,
-		Use:   "destroy",
-		Short: "Destroys e2e environment",
-		Long:  "Destroys multiple kind clusters",
-	}
-
-	customFormatter := new(log.TextFormatter)
-	customFormatter.TimestampFormat = "2006-01-02 15:04:05"
-	log.SetFormatter(customFormatter)
-	customFormatter.FullTimestamp = true
-
-	provider := kind.NewProvider(
-		kind.ProviderWithLogger(kindcmd.NewLogger()),
-	)
-
-	cmd.AddCommand(DestroyClustersCommand(provider))
-	return cmd
 }
 
 // DestroyClustersCommand returns a new cobra.Command under destroy command for armada
 func DestroyClustersCommand(provider *kind.Provider) *cobra.Command {
-	flags := &DestroyFlagpole{}
+	flags := &DestroyClusterFlagpole{}
 	cmd := &cobra.Command{
 		Args:  cobra.NoArgs,
 		Use:   "clusters",
@@ -65,7 +42,7 @@ func DestroyClustersCommand(provider *kind.Provider) *cobra.Command {
 					}
 				}
 			} else {
-				configFiles, err := ioutil.ReadDir(config.KindConfigDir)
+				configFiles, err := ioutil.ReadDir(defaults.KindConfigDir)
 				if err != nil {
 					log.Fatal(err)
 				}

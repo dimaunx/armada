@@ -6,13 +6,12 @@ import (
 	"path/filepath"
 
 	"github.com/dimaunx/armada/pkg/cluster"
-	"github.com/dimaunx/armada/pkg/config"
 	"github.com/gobuffalo/packr/v2"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Cni tests", func() {
+var _ = Describe("cni tests", func() {
 
 	box := packr.New("configs", "../../configs")
 
@@ -21,13 +20,13 @@ var _ = Describe("Cni tests", func() {
 			currentDir, err := os.Getwd()
 			Ω(err).ShouldNot(HaveOccurred())
 
-			cl := config.Cluster{
+			cl := &cluster.Config{
 				Name:      "cl1",
 				PodSubnet: "1.2.3.4/14",
 			}
 
 			configDir := filepath.Join(currentDir, "testdata/cni")
-			actual, err := cluster.GenerateWeaveDeploymentFile(&cl, box)
+			actual, err := cluster.GenerateWeaveDeploymentFile(cl, box)
 			Ω(err).ShouldNot(HaveOccurred())
 			golden, err := ioutil.ReadFile(filepath.Join(configDir, "weave_deployment.golden"))
 			Ω(err).ShouldNot(HaveOccurred())
@@ -38,13 +37,13 @@ var _ = Describe("Cni tests", func() {
 			currentDir, err := os.Getwd()
 			Ω(err).ShouldNot(HaveOccurred())
 
-			cl := config.Cluster{
+			cl := &cluster.Config{
 				Name:      "cl1",
 				PodSubnet: "1.2.3.4/8",
 			}
 
 			configDir := filepath.Join(currentDir, "testdata/cni")
-			actual, err := cluster.GenerateFlannelDeploymentFile(&cl, box)
+			actual, err := cluster.GenerateFlannelDeploymentFile(cl, box)
 			Ω(err).ShouldNot(HaveOccurred())
 			golden, err := ioutil.ReadFile(filepath.Join(configDir, "flannel_deployment.golden"))
 			Ω(err).ShouldNot(HaveOccurred())
@@ -55,12 +54,12 @@ var _ = Describe("Cni tests", func() {
 			currentDir, err := os.Getwd()
 			Ω(err).ShouldNot(HaveOccurred())
 
-			cl := config.Cluster{
+			cl := &cluster.Config{
 				PodSubnet: "1.2.3.4/16",
 			}
 
 			configDir := filepath.Join(currentDir, "testdata/cni")
-			actual, err := cluster.GenerateCalicoDeploymentFile(&cl, box)
+			actual, err := cluster.GenerateCalicoDeploymentFile(cl, box)
 			Ω(err).ShouldNot(HaveOccurred())
 			golden, err := ioutil.ReadFile(filepath.Join(configDir, "calico_deployment.golden"))
 			Ω(err).ShouldNot(HaveOccurred())

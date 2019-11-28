@@ -10,7 +10,14 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
+	createclustercmd "github.com/dimaunx/armada/cmd/armada/create/cluster"
+	deploynginxcmd "github.com/dimaunx/armada/cmd/armada/deploy/nginx"
+	destroycmd "github.com/dimaunx/armada/cmd/armada/destroy/cluster"
+	exportlogscmd "github.com/dimaunx/armada/cmd/armada/export/logs"
+	"github.com/dimaunx/armada/pkg/cluster"
+	"github.com/dimaunx/armada/pkg/defaults"
 	"github.com/dimaunx/armada/pkg/deploy"
 	"github.com/dimaunx/armada/pkg/wait"
 	"github.com/gobuffalo/packr/v2"
@@ -24,31 +31,24 @@ import (
 	kind "sigs.k8s.io/kind/pkg/cluster"
 	kindcmd "sigs.k8s.io/kind/pkg/cmd"
 
-	"github.com/dimaunx/armada/pkg/cluster"
-	"github.com/dimaunx/armada/pkg/cmd/armada"
-	"github.com/dimaunx/armada/pkg/config"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
-func CreateEnvironment(flags *armada.CreateFlagpole, provider *kind.Provider) ([]*config.Cluster, error) {
-	box := packr.New("configs", "../../../configs")
-
-	if flags.Debug {
-		log.SetLevel(log.DebugLevel)
-	}
-
-	var clusters []*config.Cluster
+func CreateEnvironment(flags *createclustercmd.CreateClusterFlagpole, provider *kind.Provider) ([]*cluster.Config, error) {
+	box := packr.New("configs", "../../configs")
+	var clusters []*cluster.Config
 	for i := 1; i <= flags.NumClusters; i++ {
-		clName := config.ClusterNameBase + strconv.Itoa(i)
+		clName := defaults.ClusterNameBase + strconv.Itoa(i)
 		known, err := cluster.IsKnown(clName, provider)
 		if err != nil {
 			return nil, err
 		}
 		if known {
-			log.Infof("✔ Cluster with the name %q already exists.", clName)
+			log.Infof("✔ Config with the name %q already exists.", clName)
 		} else {
-			cl, err := armada.PopulateClusterConfig(i, flags)
+			cni := createclustercmd.GetCniFromFlags(flags)
+			cl, err := cluster.PopulateConfig(i, flags.ImageName, cni, flags.Retain, flags.Tiller, flags.Overlap, flags.Wait)
 			if err != nil {
 				return nil, err
 			}
@@ -59,7 +59,7 @@ func CreateEnvironment(flags *armada.CreateFlagpole, provider *kind.Provider) ([
 	var wg sync.WaitGroup
 	wg.Add(len(clusters))
 	for _, cl := range clusters {
-		go func(cl *config.Cluster) {
+		go func(cl *cluster.Config) {
 			err := cluster.Create(cl, provider, box, &wg)
 			if err != nil {
 				log.Fatal(err)
@@ -70,7 +70,7 @@ func CreateEnvironment(flags *armada.CreateFlagpole, provider *kind.Provider) ([
 
 	wg.Add(len(clusters))
 	for _, cl := range clusters {
-		go func(cl *config.Cluster) {
+		go func(cl *cluster.Config) {
 			err := cluster.FinalizeSetup(cl, box, &wg)
 			if err != nil {
 				log.Fatal(err)
@@ -100,59 +100,61 @@ var _ = Describe("E2E Tests", func() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	Context("Cluster creation and deployment", func() {
+	Context("Config creation and deployment", func() {
 		It("Should create 2 clusters with flannel and overlapping cidrs", func() {
-			flags := &armada.CreateFlagpole{
+			flags := &createclustercmd.CreateClusterFlagpole{
 				NumClusters: 2,
 				Overlap:     true,
 				Flannel:     true,
-				Debug:       true,
 				Retain:      false,
+				Wait:        5 * time.Minute,
 			}
 
 			clusters, err := CreateEnvironment(flags, provider)
 			Ω(err).ShouldNot(HaveOccurred())
 
-			cl1Status, err := cluster.IsKnown(config.ClusterNameBase+strconv.Itoa(1), provider)
+			cl1Status, err := cluster.IsKnown(defaults.ClusterNameBase+strconv.Itoa(1), provider)
 			Ω(err).ShouldNot(HaveOccurred())
-			cl2Status, err := cluster.IsKnown(config.ClusterNameBase+strconv.Itoa(2), provider)
+			cl2Status, err := cluster.IsKnown(defaults.ClusterNameBase+strconv.Itoa(2), provider)
 			Ω(err).ShouldNot(HaveOccurred())
 
 			Expect(cl1Status).Should(BeTrue())
 			Expect(cl2Status).Should(BeTrue())
-			Expect(clusters).Should(Equal([]*config.Cluster{
+			Expect(clusters).Should(Equal([]*cluster.Config{
 				{
 					Cni:                 "flannel",
-					Name:                config.ClusterNameBase + strconv.Itoa(1),
+					Name:                defaults.ClusterNameBase + strconv.Itoa(1),
 					PodSubnet:           "10.0.0.0/14",
 					ServiceSubnet:       "100.0.0.0/16",
-					DNSDomain:           config.ClusterNameBase + strconv.Itoa(1) + ".local",
-					KubeAdminAPIVersion: config.KubeAdminAPIVersion,
-					NumWorkers:          config.NumWorkers,
-					KubeConfigFilePath:  filepath.Join(usr.HomeDir, ".kube", "kind-config-"+config.ClusterNameBase+strconv.Itoa(1)),
+					DNSDomain:           defaults.ClusterNameBase + strconv.Itoa(1) + ".local",
+					KubeAdminAPIVersion: defaults.KubeAdminAPIVersion,
+					NumWorkers:          defaults.NumWorkers,
+					KubeConfigFilePath:  filepath.Join(usr.HomeDir, ".kube", "kind-config-"+defaults.ClusterNameBase+strconv.Itoa(1)),
 					Retain:              false,
+					WaitForReady:        0,
 				},
 				{
 					Cni:                 "flannel",
-					Name:                config.ClusterNameBase + strconv.Itoa(2),
+					Name:                defaults.ClusterNameBase + strconv.Itoa(2),
 					PodSubnet:           "10.0.0.0/14",
 					ServiceSubnet:       "100.0.0.0/16",
-					DNSDomain:           config.ClusterNameBase + strconv.Itoa(2) + ".local",
-					KubeAdminAPIVersion: config.KubeAdminAPIVersion,
-					NumWorkers:          config.NumWorkers,
-					KubeConfigFilePath:  filepath.Join(usr.HomeDir, ".kube", "kind-config-"+config.ClusterNameBase+strconv.Itoa(2)),
+					DNSDomain:           defaults.ClusterNameBase + strconv.Itoa(2) + ".local",
+					KubeAdminAPIVersion: defaults.KubeAdminAPIVersion,
+					NumWorkers:          defaults.NumWorkers,
+					KubeConfigFilePath:  filepath.Join(usr.HomeDir, ".kube", "kind-config-"+defaults.ClusterNameBase+strconv.Itoa(2)),
 					Retain:              false,
+					WaitForReady:        0,
 				},
 			}))
 		})
 		It("Should create a third cluster with weave, kindest/node:v1.15.6 and tiller", func() {
-			flags := &armada.CreateFlagpole{
+			flags := &createclustercmd.CreateClusterFlagpole{
 				NumClusters: 3,
 				Weave:       true,
 				Tiller:      true,
 				ImageName:   "kindest/node:v1.15.6",
-				Debug:       true,
 				Retain:      false,
+				Wait:        5 * time.Minute,
 			}
 
 			clusters, err := CreateEnvironment(flags, provider)
@@ -163,28 +165,28 @@ var _ = Describe("E2E Tests", func() {
 			Ω(err).ShouldNot(HaveOccurred())
 
 			containerFilter := filters.NewArgs()
-			containerFilter.Add("name", config.ClusterNameBase+strconv.Itoa(3)+"-control-plane")
+			containerFilter.Add("name", defaults.ClusterNameBase+strconv.Itoa(3)+"-control-plane")
 			container, err := dockerCli.ContainerList(ctx, dockertypes.ContainerListOptions{
 				Filters: containerFilter,
 				Limit:   1,
 			})
 			Ω(err).ShouldNot(HaveOccurred())
 			image := container[0].Image
-			cl3Status, err := cluster.IsKnown(config.ClusterNameBase+strconv.Itoa(3), provider)
+			cl3Status, err := cluster.IsKnown(defaults.ClusterNameBase+strconv.Itoa(3), provider)
 			Ω(err).ShouldNot(HaveOccurred())
 
 			Expect(image).Should(Equal(flags.ImageName))
 			Expect(cl3Status).Should(BeTrue())
-			Expect(clusters).Should(Equal([]*config.Cluster{
+			Expect(clusters).Should(Equal([]*cluster.Config{
 				{
 					Cni:                 "weave",
-					Name:                config.ClusterNameBase + strconv.Itoa(3),
+					Name:                defaults.ClusterNameBase + strconv.Itoa(3),
 					PodSubnet:           "10.12.0.0/14",
 					ServiceSubnet:       "100.3.0.0/16",
-					DNSDomain:           config.ClusterNameBase + strconv.Itoa(3) + ".local",
+					DNSDomain:           defaults.ClusterNameBase + strconv.Itoa(3) + ".local",
 					KubeAdminAPIVersion: "kubeadm.k8s.io/v1beta2",
-					NumWorkers:          config.NumWorkers,
-					KubeConfigFilePath:  filepath.Join(usr.HomeDir, ".kube", "kind-config-"+config.ClusterNameBase+strconv.Itoa(3)),
+					NumWorkers:          defaults.NumWorkers,
+					KubeConfigFilePath:  filepath.Join(usr.HomeDir, ".kube", "kind-config-"+defaults.ClusterNameBase+strconv.Itoa(3)),
 					WaitForReady:        0,
 					NodeImageName:       "kindest/node:v1.15.6",
 					Retain:              false,
@@ -194,11 +196,12 @@ var _ = Describe("E2E Tests", func() {
 		})
 		It("Should deploy nginx-demo to clusters 1 and 3", func() {
 
-			flags := &armada.DeployFlagpole{
+			flags := &deploynginxcmd.NginxDeployFlagpole{
 				Clusters: []string{"cluster1", "cluster3"},
+				Debug:    true,
 			}
 
-			box := packr.New("configs", "../../../configs")
+			box := packr.New("configs", "../../configs")
 			nginxDeploymentFile, err := box.Resolve("debug/nginx-demo-daemonset.yaml")
 			Ω(err).ShouldNot(HaveOccurred())
 
@@ -235,7 +238,7 @@ var _ = Describe("E2E Tests", func() {
 			netshootDeploymentFile, err := box.Resolve("debug/netshoot-daemonset.yaml")
 			Ω(err).ShouldNot(HaveOccurred())
 
-			configFiles, err := ioutil.ReadDir(config.KindConfigDir)
+			configFiles, err := ioutil.ReadDir(defaults.KindConfigDir)
 			Ω(err).ShouldNot(HaveOccurred())
 
 			var activeDeployments []string
@@ -268,26 +271,42 @@ var _ = Describe("E2E Tests", func() {
 			Expect(len(activeDeployments)).Should(Equal(3))
 		})
 		It("Should not create a new cluster", func() {
-			flags := &armada.CreateFlagpole{
+			flags := &createclustercmd.CreateClusterFlagpole{
 				NumClusters: 3,
 			}
 
 			for i := 1; i <= flags.NumClusters; i++ {
-				clName := config.ClusterNameBase + strconv.Itoa(i)
+				clName := defaults.ClusterNameBase + strconv.Itoa(i)
 				known, err := cluster.IsKnown(clName, provider)
 				Ω(err).ShouldNot(HaveOccurred())
 				if known {
-					log.Infof("✔ Cluster with the name %q already exists.", clName)
+					log.Infof("✔ Config with the name %q already exists.", clName)
 				} else {
 					Fail("Attempted to create a new cluster, but should have skipped as cluster already exists")
 				}
 			}
 		})
+		It("Should export logs for clusters 1 and 2", func() {
+			flags := &exportlogscmd.ExportLogsFlagpole{
+				Clusters: []string{"cluster1", "cluster2"},
+			}
+
+			for _, clName := range flags.Clusters {
+				err := provider.CollectLogs(clName, filepath.Join(defaults.KindLogsDir, clName))
+				Ω(err).ShouldNot(HaveOccurred())
+			}
+
+			_, err := os.Stat(filepath.Join(defaults.KindLogsDir, "cluster1", "cluster1-control-plane"))
+			Ω(err).ShouldNot(HaveOccurred())
+			_, err = os.Stat(filepath.Join(defaults.KindLogsDir, "cluster2", "cluster2-control-plane"))
+			Ω(err).ShouldNot(HaveOccurred())
+
+		})
 	})
-	Context("Cluster deletion", func() {
+	Context("Config deletion", func() {
 		It("Should destroy clusters 1 and 3 only", func() {
-			flags := armada.DestroyFlagpole{
-				Clusters: []string{config.ClusterNameBase + strconv.Itoa(1), config.ClusterNameBase + strconv.Itoa(3)},
+			flags := destroycmd.DestroyClusterFlagpole{
+				Clusters: []string{defaults.ClusterNameBase + strconv.Itoa(1), defaults.ClusterNameBase + strconv.Itoa(3)},
 			}
 
 			for _, clName := range flags.Clusters {
@@ -299,11 +318,11 @@ var _ = Describe("E2E Tests", func() {
 				}
 			}
 
-			cl1Status, err := cluster.IsKnown(config.ClusterNameBase+strconv.Itoa(1), provider)
+			cl1Status, err := cluster.IsKnown(defaults.ClusterNameBase+strconv.Itoa(1), provider)
 			Ω(err).ShouldNot(HaveOccurred())
-			cl2Status, err := cluster.IsKnown(config.ClusterNameBase+strconv.Itoa(2), provider)
+			cl2Status, err := cluster.IsKnown(defaults.ClusterNameBase+strconv.Itoa(2), provider)
 			Ω(err).ShouldNot(HaveOccurred())
-			cl3Status, err := cluster.IsKnown(config.ClusterNameBase+strconv.Itoa(3), provider)
+			cl3Status, err := cluster.IsKnown(defaults.ClusterNameBase+strconv.Itoa(3), provider)
 			Ω(err).ShouldNot(HaveOccurred())
 
 			Expect(cl1Status).Should(BeFalse())
@@ -311,7 +330,7 @@ var _ = Describe("E2E Tests", func() {
 			Expect(cl3Status).Should(BeFalse())
 		})
 		It("Should destroy all remaining clusters", func() {
-			configFiles, err := ioutil.ReadDir(config.KindConfigDir)
+			configFiles, err := ioutil.ReadDir(defaults.KindConfigDir)
 			Ω(err).ShouldNot(HaveOccurred())
 
 			for _, file := range configFiles {
@@ -320,11 +339,11 @@ var _ = Describe("E2E Tests", func() {
 				Ω(err).ShouldNot(HaveOccurred())
 			}
 
-			cl1Status, err := cluster.IsKnown(config.ClusterNameBase+strconv.Itoa(1), provider)
+			cl1Status, err := cluster.IsKnown(defaults.ClusterNameBase+strconv.Itoa(1), provider)
 			Ω(err).ShouldNot(HaveOccurred())
-			cl2Status, err := cluster.IsKnown(config.ClusterNameBase+strconv.Itoa(2), provider)
+			cl2Status, err := cluster.IsKnown(defaults.ClusterNameBase+strconv.Itoa(2), provider)
 			Ω(err).ShouldNot(HaveOccurred())
-			cl3Status, err := cluster.IsKnown(config.ClusterNameBase+strconv.Itoa(3), provider)
+			cl3Status, err := cluster.IsKnown(defaults.ClusterNameBase+strconv.Itoa(3), provider)
 			Ω(err).ShouldNot(HaveOccurred())
 
 			Expect(cl1Status).Should(BeFalse())

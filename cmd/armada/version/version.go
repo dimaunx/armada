@@ -1,4 +1,4 @@
-package armada
+package version
 
 import (
 	log "github.com/sirupsen/logrus"

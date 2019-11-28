@@ -7,12 +7,12 @@ import (
 	"strings"
 
 	"github.com/dimaunx/armada/pkg/cluster"
-	"github.com/dimaunx/armada/pkg/config"
+	"github.com/dimaunx/armada/pkg/defaults"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Kubeconfig tests", func() {
+var _ = Describe("kubeconfig tests", func() {
 
 	AfterSuite(func() {
 		_ = os.RemoveAll("./output")
@@ -23,14 +23,14 @@ var _ = Describe("Kubeconfig tests", func() {
 			currentDir, err := os.Getwd()
 			Ω(err).ShouldNot(HaveOccurred())
 
-			cl := config.Cluster{
+			cl := &cluster.Config{
 				Name: "cl1",
 			}
 
 			configDir := filepath.Join(currentDir, "testdata/kube")
 			kindKubeFileName := strings.Join([]string{"kind-config", cl.Name}, "-")
-			newLocalKubeFilePath := filepath.Join(currentDir, config.LocalKubeConfigDir, kindKubeFileName)
-			newContainerKubeFilePath := filepath.Join(currentDir, config.ContainerKubeConfigDir, kindKubeFileName)
+			newLocalKubeFilePath := filepath.Join(currentDir, defaults.LocalKubeConfigDir, kindKubeFileName)
+			newContainerKubeFilePath := filepath.Join(currentDir, defaults.ContainerKubeConfigDir, kindKubeFileName)
 			gfs := filepath.Join(configDir, "kubeconfig_source")
 			err = cluster.PrepareKubeConfigs(cl.Name, gfs, "172.17.0.3")
 			Ω(err).ShouldNot(HaveOccurred())
