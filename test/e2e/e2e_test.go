@@ -2,20 +2,21 @@ package e2e
 
 import (
 	"context"
-	"github.com/dimaunx/armada/pkg/deploy"
-	"github.com/dimaunx/armada/pkg/image"
-	"github.com/dimaunx/armada/pkg/wait"
 	"io"
 	"io/ioutil"
 	"os"
 	"os/user"
 	"path/filepath"
-	"sigs.k8s.io/kind/pkg/cluster/nodes"
 	"strconv"
 	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/dimaunx/armada/pkg/deploy"
+	"github.com/dimaunx/armada/pkg/image"
+	"github.com/dimaunx/armada/pkg/wait"
+	"sigs.k8s.io/kind/pkg/cluster/nodes"
 
 	createclustercmd "github.com/dimaunx/armada/cmd/armada/create/cluster"
 	deploynginxcmd "github.com/dimaunx/armada/cmd/armada/deploy/nginx"

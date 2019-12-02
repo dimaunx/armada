@@ -2,8 +2,6 @@ package image
 
 import (
 	"context"
-	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/filters"
 	"io"
 	"io/ioutil"
 	"os"
@@ -11,6 +9,9 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/filters"
 
 	"github.com/dimaunx/armada/pkg/cluster"
 	dockerclient "github.com/docker/docker/client"

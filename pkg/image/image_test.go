@@ -2,10 +2,11 @@ package image_test
 
 import (
 	"context"
-	log "github.com/sirupsen/logrus"
 	"io"
 	"os"
 	"testing"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/dimaunx/armada/pkg/image"
 	"github.com/docker/docker/api/types"
@@ -38,6 +39,7 @@ var _ = Describe("image tests", func() {
 				All:     false,
 				Filters: imageFilter,
 			})
+			Ω(err).ShouldNot(HaveOccurred())
 			imageID, err := image.GetLocalID(dockerCli, ctx, "alpine:latest")
 			Ω(err).ShouldNot(HaveOccurred())
 
