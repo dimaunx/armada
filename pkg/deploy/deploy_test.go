@@ -16,7 +16,7 @@ import (
 
 func TestDeployment(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Config test suite")
+	RunSpecs(t, "Deploy test suite")
 }
 
 var _ = Describe("Deploy tests", func() {
