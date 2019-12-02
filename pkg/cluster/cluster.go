@@ -138,6 +138,44 @@ func IsKnown(clName string, provider *kind.Provider) (bool, error) {
 	return false, nil
 }
 
+// GetClientSet returns kubernetes interface
+func GetClientSet(clName string) (kubernetes.Interface, error) {
+	kubeConfigFilePath, err := GetKubeConfigPath(clName)
+	if err != nil {
+		return nil, err
+	}
+
+	kconfig, err := clientcmd.BuildConfigFromFlags("", kubeConfigFilePath)
+	if err != nil {
+		return nil, err
+	}
+
+	clientSet, err := kubernetes.NewForConfig(kconfig)
+	if err != nil {
+		return nil, err
+	}
+	return clientSet, nil
+}
+
+// GetCrdClientSet returns apiextclientset interface
+func GetCrdClientSet(clName string) (apiextclientset.Interface, error) {
+	kubeConfigFilePath, err := GetKubeConfigPath(clName)
+	if err != nil {
+		return nil, err
+	}
+
+	kconfig, err := clientcmd.BuildConfigFromFlags("", kubeConfigFilePath)
+	if err != nil {
+		return nil, err
+	}
+
+	apiExtClientSet, err := apiextclientset.NewForConfig(kconfig)
+	if err != nil {
+		return nil, err
+	}
+	return apiExtClientSet, nil
+}
+
 // FinalizeSetup creates custom environment
 func FinalizeSetup(cl *Config, box *packr.Box, wg *sync.WaitGroup) error {
 	masterIP, err := GetMasterDockerIP(cl.Name)
@@ -150,22 +188,12 @@ func FinalizeSetup(cl *Config, box *packr.Box, wg *sync.WaitGroup) error {
 		return err
 	}
 
-	newKubeConfigFilePath, err := GetKubeConfigPath(cl.Name)
+	clientSet, err := GetClientSet(cl.Name)
 	if err != nil {
 		return err
 	}
 
-	kconfig, err := clientcmd.BuildConfigFromFlags("", newKubeConfigFilePath)
-	if err != nil {
-		return err
-	}
-
-	clientSet, err := kubernetes.NewForConfig(kconfig)
-	if err != nil {
-		return err
-	}
-
-	apiExtClientSet, err := apiextclientset.NewForConfig(kconfig)
+	apiExtClientSet, err := GetCrdClientSet(cl.Name)
 	if err != nil {
 		return err
 	}

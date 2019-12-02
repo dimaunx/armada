@@ -52,6 +52,6 @@ func ExportLogsCommand(provider *kind.Provider) *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringSliceVarP(&flags.Clusters, "cluster", "c", []string{}, "comma separated list of cluster names. eg: cluster1,cluster6,cluster3")
+	cmd.Flags().StringSliceVarP(&flags.Clusters, "clusters", "c", []string{}, "comma separated list of cluster names. eg: cluster1,cluster6,cluster3")
 	return cmd
 }

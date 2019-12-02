@@ -12,8 +12,6 @@ import (
 	"github.com/gobuffalo/packr/v2"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
 )
 
 // NetshootDeployFlagpole is a list of cli flags for deploy nginx-demo command
@@ -56,12 +54,10 @@ func DeployNetshootCommand(box *packr.Box) *cobra.Command {
 			if len(flags.Clusters) > 0 {
 				targetClusters = append(targetClusters, flags.Clusters...)
 			} else {
-
 				configFiles, err := ioutil.ReadDir(defaults.KindConfigDir)
 				if err != nil {
 					log.Fatal(err)
 				}
-
 				for _, configFile := range configFiles {
 					clName := strings.FieldsFunc(configFile.Name(), func(r rune) bool { return strings.ContainsRune(" -.", r) })[2]
 					targetClusters = append(targetClusters, clName)
@@ -72,17 +68,7 @@ func DeployNetshootCommand(box *packr.Box) *cobra.Command {
 			wg.Add(len(targetClusters))
 			for _, clName := range targetClusters {
 				go func(clName string) {
-					kubeConfigFilePath, err := cluster.GetKubeConfigPath(clName)
-					if err != nil {
-						log.Fatalf("%s %s", clName, err)
-					}
-
-					kconfig, err := clientcmd.BuildConfigFromFlags("", kubeConfigFilePath)
-					if err != nil {
-						log.Fatalf("%s %s", clName, err)
-					}
-
-					clientSet, err := kubernetes.NewForConfig(kconfig)
+					clientSet, err := cluster.GetClientSet(clName)
 					if err != nil {
 						log.Fatalf("%s %s", clName, err)
 					}
@@ -105,6 +91,6 @@ func DeployNetshootCommand(box *packr.Box) *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&flags.HostNetwork, "host-network", false, "deploy the pods in host network mode.")
 	cmd.Flags().BoolVarP(&flags.Debug, "debug", "v", false, "set log level to debug")
-	cmd.Flags().StringSliceVarP(&flags.Clusters, "cluster", "c", []string{}, "comma separated list of cluster names to deploy to. eg: cl1,cl6,cl3")
+	cmd.Flags().StringSliceVarP(&flags.Clusters, "clusters", "c", []string{}, "comma separated list of cluster names to deploy to. eg: cl1,cl6,cl3")
 	return cmd
 }

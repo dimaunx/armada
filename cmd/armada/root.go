@@ -3,6 +3,8 @@ package armada
 import (
 	"os"
 
+	"github.com/dimaunx/armada/cmd/armada/load"
+
 	"github.com/dimaunx/armada/cmd/armada/create"
 	"github.com/dimaunx/armada/cmd/armada/deploy"
 	"github.com/dimaunx/armada/cmd/armada/destroy"
@@ -38,6 +40,7 @@ func NewRootCmd() *cobra.Command {
 	cmd.AddCommand(create.CreateCmd(provider, box))
 	cmd.AddCommand(destroy.DestroyCmd(provider))
 	cmd.AddCommand(export.ExportCmd(provider))
+	cmd.AddCommand(load.LoadCmd(provider))
 	cmd.AddCommand(deploy.DeployCmd(box))
 	cmd.AddCommand(version.VersionCmd())
 	return cmd
