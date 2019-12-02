@@ -42,14 +42,14 @@ var _ = Describe("image tests", func() {
 				Filters: imageFilter,
 			})
 			Ω(err).ShouldNot(HaveOccurred())
-			imageID, err := image.GetLocalID(dockerCli, ctx, "alpine:latest")
+			imageID, err := image.GetLocalID(ctx, dockerCli, "alpine:latest")
 			Ω(err).ShouldNot(HaveOccurred())
 
 			Expect(result[0].ID).Should(Equal(imageID))
 		})
 		It("Should save the image to temp location", func() {
 			log.SetLevel(log.DebugLevel)
-			tempFilePath, err := image.Save("alpine:latest", dockerCli, ctx)
+			tempFilePath, err := image.Save(ctx, dockerCli, "alpine:latest")
 			Ω(err).ShouldNot(HaveOccurred())
 			defer os.RemoveAll(filepath.Dir(tempFilePath))
 

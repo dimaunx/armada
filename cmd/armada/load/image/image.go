@@ -17,7 +17,7 @@ import (
 	"sigs.k8s.io/kind/pkg/cluster/nodes"
 )
 
-// ExportLogsFlagpole is a list of cli flags for export logs command
+// LoadImagesFlagpole is a list of cli flags for export logs command
 type LoadImagesFlagpole struct {
 	Clusters []string
 	Images   []string
@@ -60,7 +60,7 @@ func LoadImageCommand(provider *kind.Provider) *cobra.Command {
 
 			if len(targetClusters) > 0 {
 				for _, imageName := range flags.Images {
-					localImageID, err := image.GetLocalID(dockerCli, ctx, imageName)
+					localImageID, err := image.GetLocalID(ctx, dockerCli, imageName)
 					if err != nil {
 						log.Fatal(err)
 					}
@@ -69,7 +69,7 @@ func LoadImageCommand(provider *kind.Provider) *cobra.Command {
 						log.Error(err)
 					}
 					if len(selectedNodes) > 0 {
-						imageTarPath, err := image.Save(imageName, dockerCli, ctx)
+						imageTarPath, err := image.Save(ctx, dockerCli, imageName)
 						if err != nil {
 							log.Fatal(err)
 						}

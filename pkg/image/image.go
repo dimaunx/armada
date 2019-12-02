@@ -23,7 +23,7 @@ import (
 )
 
 // GetLocalID returns local image id by name/reference
-func GetLocalID(dockerCli *dockerclient.Client, ctx context.Context, imageName string) (string, error) {
+func GetLocalID(ctx context.Context, dockerCli *dockerclient.Client, imageName string) (string, error) {
 	imageFilter := filters.NewArgs()
 	imageFilter.Add("reference", imageName)
 	result, err := dockerCli.ImageList(ctx, types.ImageListOptions{
@@ -74,7 +74,7 @@ func GetNodesWithout(provider *kind.Provider, imageName, localImageID string, cl
 }
 
 // Save saves the image to tar and returns temp file location
-func Save(imageName string, dockerCli *dockerclient.Client, ctx context.Context) (string, error) {
+func Save(ctx context.Context, dockerCli *dockerclient.Client, imageName string) (string, error) {
 	// Create temp dor to images tar
 	tempDirName, err := ioutil.TempDir("", "image-tar")
 	if err != nil {

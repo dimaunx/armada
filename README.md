@@ -91,12 +91,42 @@ Flags:
   -f, --flannel         deploy with flannel
   -h, --help            help for clusters
   -i, --image string    node docker image to use for booting the cluster
+  -k, --kindnet         deploy with kindnet default cni (default true)
   -n, --num int         number of clusters to create (default 2)
   -o, --overlap         create clusters with overlapping cidrs
       --retain          retain nodes for debugging when cluster creation fails (default true)
   -t, --tiller          deploy with tiller
       --wait duration   amount of minutes to wait for control plane nodes to be ready (default 5m0s)
   -w, --weave           deploy with weave
+```
+
+## Load images
+
+Load multiple images in to all active clusters. Please note that the images must exist locally.
+
+```bash
+./armada load docker-images --images alpine:latest,nginx:alpine
+```
+
+Load multiple images to specific clusters.
+
+```bash
+./armada load docker-images --images alpine:latest,nginx:alpine --clusters cluster1,cluster3
+```
+
+Load images command full usage.
+```bash
+./armada load docker-images -h
+Load docker images in to the cluster
+
+Usage:
+  armada load docker-images [flags]
+
+Flags:
+  -c, --clusters strings   comma separated list of cluster names to load the image in to.
+  -v, --debug              set log level to debug
+  -h, --help               help for docker-images
+  -i, --images strings     comma separated list images to load.
 ```
 
 ## Destroy clusters
@@ -109,7 +139,7 @@ Destroy all clusters
 Destroy specific clusters
 
 ```bash
-./armada destroy clusters --cluster cl1,cl3
+./armada destroy clusters --clusters cl1,cl3
 ```
 
 <!--links-->

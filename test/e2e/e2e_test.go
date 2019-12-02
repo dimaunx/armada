@@ -345,14 +345,14 @@ var _ = Describe("E2E Tests", func() {
 
 			var nodesWithImage []nodes.Node
 			for _, imageName := range flags.Images {
-				localImageID, err := image.GetLocalID(dockerCli, ctx, imageName)
+				localImageID, err := image.GetLocalID(ctx, dockerCli, imageName)
 				Ω(err).ShouldNot(HaveOccurred())
 
 				selectedNodes, err := image.GetNodesWithout(provider, imageName, localImageID, targetClusters)
 				Ω(err).ShouldNot(HaveOccurred())
 				Expect(len(selectedNodes)).Should(Equal(9))
 
-				imageTarPath, err := image.Save(imageName, dockerCli, ctx)
+				imageTarPath, err := image.Save(ctx, dockerCli, imageName)
 				Ω(err).ShouldNot(HaveOccurred())
 				defer os.RemoveAll(filepath.Dir(imageTarPath))
 
@@ -382,13 +382,13 @@ var _ = Describe("E2E Tests", func() {
 			log.SetLevel(log.DebugLevel)
 			var nodesWithImages []nodes.Node
 			for _, imageName := range flags.Images {
-				localImageID, err := image.GetLocalID(dockerCli, ctx, imageName)
+				localImageID, err := image.GetLocalID(ctx, dockerCli, imageName)
 				Ω(err).ShouldNot(HaveOccurred())
 
 				selectedNodes, err := image.GetNodesWithout(provider, imageName, localImageID, flags.Clusters)
 				Ω(err).ShouldNot(HaveOccurred())
 
-				imageTarPath, err := image.Save(imageName, dockerCli, ctx)
+				imageTarPath, err := image.Save(ctx, dockerCli, imageName)
 				Ω(err).ShouldNot(HaveOccurred())
 				defer os.RemoveAll(filepath.Dir(imageTarPath))
 
