@@ -328,7 +328,7 @@ var _ = Describe("E2E Tests", func() {
 			_, err = io.Copy(os.Stdout, reader)
 			Ω(err).ShouldNot(HaveOccurred())
 		})
-		It("Should load multiple images to all the clusters", func() {
+		It("Should an images to all the clusters", func() {
 			flags := &loadimagecmd.LoadImagesFlagpole{
 				Debug:  true,
 				Images: []string{"alpine:edge"},
@@ -370,7 +370,7 @@ var _ = Describe("E2E Tests", func() {
 			}
 			Expect(len(nodesWithImage)).Should(Equal(9))
 		})
-		It("Should load an images to cluster 1 and 3 only", func() {
+		It("Should load multiple images to cluster 1 and 3 only", func() {
 			flags := &loadimagecmd.LoadImagesFlagpole{
 				Debug:  true,
 				Images: []string{"nginx:stable-alpine", "alpine:latest"},
