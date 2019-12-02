@@ -91,6 +91,6 @@ func DeployNetshootCommand(box *packr.Box) *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&flags.HostNetwork, "host-network", false, "deploy the pods in host network mode.")
 	cmd.Flags().BoolVarP(&flags.Debug, "debug", "v", false, "set log level to debug")
-	cmd.Flags().StringSliceVarP(&flags.Clusters, "cluster", "c", []string{}, "comma separated list of cluster names to deploy to. eg: cl1,cl6,cl3")
+	cmd.Flags().StringSliceVarP(&flags.Clusters, "clusters", "c", []string{}, "comma separated list of cluster names to deploy to. eg: cl1,cl6,cl3")
 	return cmd
 }

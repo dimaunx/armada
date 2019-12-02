@@ -94,8 +94,8 @@ func LoadImageCommand(provider *kind.Provider) *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringSliceVarP(&flags.Clusters, "cluster", "c", []string{}, "comma separated list of cluster names to load the image in to.")
-	cmd.Flags().StringSliceVarP(&flags.Images, "image", "i", []string{}, "comma separated list images to load.")
+	cmd.Flags().StringSliceVarP(&flags.Clusters, "clusters", "c", []string{}, "comma separated list of cluster names to load the image in to.")
+	cmd.Flags().StringSliceVarP(&flags.Images, "images", "i", []string{}, "comma separated list images to load.")
 	cmd.Flags().BoolVarP(&flags.Debug, "debug", "v", false, "set log level to debug")
 	return cmd
 }

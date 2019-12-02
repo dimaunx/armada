@@ -57,6 +57,6 @@ func DestroyClustersCommand(provider *kind.Provider) *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringSliceVarP(&flags.Clusters, "cluster", "c", []string{}, "comma separated list of cluster names to destroy. eg: cl1,cl6,cl3")
+	cmd.Flags().StringSliceVarP(&flags.Clusters, "clusters", "c", []string{}, "comma separated list of cluster names to destroy. eg: cl1,cl6,cl3")
 	return cmd
 }
