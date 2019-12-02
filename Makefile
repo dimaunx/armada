@@ -39,42 +39,34 @@ $(GINKGO):
 
 test: $(GINKGO)
 	ginkgo -v -cover ./pkg/...
-.PHONY: test
 
 e2e: $(GINKGO)
 	ginkgo -v ./test/e2e/...
-.PHONY: e2e
 
 validate: $(GOLANGCILINT) $(GOIMPORTS)
 	$(GOCMD) mod vendor
 	find . -name '*.go' -not -wholename './vendor/*' | while read -r file; do goimports -w -d "$$file"; done
 	golangci-lint run ./...
-.PHONY: validate
 
 build: $(PACKR) validate
 	packr2 -v --ignore-imports
 	CGO_ENABLED=0 $(GOCMD) build $(LDFLAGS) -o $(GOBASE)/$(OUTPUTDIR)/$(PROJECTNAME)
-.PHONY: build
 
 docker-build-image:
 	docker build -t $(PROJECTNAME):$(VERSION) --build-arg PROJECTNAME=$(PROJECTNAME) --build-arg OUTPUTDIR=$(OUTPUTDIR) .
 	docker create --name $(PROJECTNAME)-$(VERSION)-builder $(PROJECTNAME):$(VERSION) /bin/sh
-.PHONY: docker-build-image
 
 docker-build: docker-build-image
 	$(eval CID=$(shell docker ps -aqf "name=$(PROJECTNAME)-$(VERSION)-builder"))
 	docker cp $(CID):/$(PROJECTNAME)/$(OUTPUTDIR) .
 	docker rm -f $(CID)
-.PHONY: docker-build
 
 docker-run:
 	${MAKE} docker ARGS="${ARGS}" || { echo "failure!"; ${MAKE} fix-perm; exit 1; };
-.PHONY: docker-run
 
 docker:
 	docker run -it --rm --name $(PROJECTNAME)-$(VERSION)-runner -v /var/run/docker.sock:/var/run/docker.sock -v $(GOBASE):/$(PROJECTNAME) -w /$(PROJECTNAME) quay.io/submariner/dapper-base:latest ${ARGS}
 	sudo chown -R $(USER):$(USER) $(GOBASE)
-.PHONY: docker
 
 clean: fix-perm
 	rm -rf packrd debug packr2 $(OUTPUTDIR) $(GOBASE)/vendor $(GOBASE)/cmd/armada/armada-packr.go $(GOBASE)/pkg/*/*.cover* $(GOBASE)/test/*/*.cover* $(GOBASE)/pkg/*/output
@@ -83,8 +75,8 @@ clean: fix-perm
 	-docker images -qf dangling=true | xargs docker rmi -f
 	-docker volume ls -qf dangling=true | xargs docker volume rm -f
 	-docker rmi $(PROJECTNAME):$(VERSION)
-.PHONY: clean
 
 fix-perm:
 	sudo chown -R $(USER):$(USER) $(GOBASE)
-.PHONY: fix-perm
+
+.PHONY: fix-perm clean docker docker-run docker-build docker-build-image build validate e2e test
