@@ -328,7 +328,7 @@ var _ = Describe("E2E Tests", func() {
 			_, err = io.Copy(os.Stdout, reader)
 			Ω(err).ShouldNot(HaveOccurred())
 		})
-		It("Should an images to all the clusters", func() {
+		It("Should an image to all the clusters", func() {
 			flags := &loadimagecmd.LoadImagesFlagpole{
 				Debug:  true,
 				Images: []string{"alpine:edge"},
