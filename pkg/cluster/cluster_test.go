@@ -226,12 +226,9 @@ var _ = Describe("cluster tests", func() {
 				Limit:   1,
 			})
 			Ω(err).ShouldNot(HaveOccurred())
-
 			Expect(len(containers)).ShouldNot(BeZero())
 
-			fmt.Printf("container found: %v", containers)
 			actual := containers[0].NetworkSettings.Networks["bridge"].IPAddress
-
 			masterIP, err := cluster.GetMasterDockerIP("cl2")
 			Ω(err).ShouldNot(HaveOccurred())
 			fmt.Printf("actual: %s , returned: %s", actual, masterIP)
