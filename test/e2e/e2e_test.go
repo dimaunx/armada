@@ -328,7 +328,7 @@ var _ = Describe("E2E Tests", func() {
 			_, err = io.Copy(os.Stdout, reader)
 			Ω(err).ShouldNot(HaveOccurred())
 		})
-		It("Should load an image to all clusters", func() {
+		It("Should load multiple images to all the clusters", func() {
 			flags := &loadimagecmd.LoadImagesFlagpole{
 				Debug:  true,
 				Images: []string{"alpine:edge"},
@@ -343,7 +343,7 @@ var _ = Describe("E2E Tests", func() {
 				targetClusters = append(targetClusters, clName)
 			}
 
-			nodesWithImage := []nodes.Node{}
+			var nodesWithImage []nodes.Node
 			for _, imageName := range flags.Images {
 				localImageID, err := image.GetLocalID(dockerCli, ctx, imageName)
 				Ω(err).ShouldNot(HaveOccurred())
@@ -380,7 +380,7 @@ var _ = Describe("E2E Tests", func() {
 				},
 			}
 			log.SetLevel(log.DebugLevel)
-			nodesWithImages := []nodes.Node{}
+			var nodesWithImages []nodes.Node
 			for _, imageName := range flags.Images {
 				localImageID, err := image.GetLocalID(dockerCli, ctx, imageName)
 				Ω(err).ShouldNot(HaveOccurred())
