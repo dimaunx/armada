@@ -21,7 +21,7 @@ GOIMPORTS := $(GOBIN)/goimports
 GINKGO := $(GOBIN)/ginkgo
 
 # # Use linker flags to provide version/build settings
-LDFLAGS=-ldflags "-X github.com/dimaunx/armada/pkg/cmd/armada.Version=$(VERSION) -X github.com/dimaunx/armada/pkg/cmd/armada.Build=$(BUILD)"
+LDFLAGS=-ldflags "-X github.com/dimaunx/armada/cmd/armada.Version=$(VERSION) -X github.com/dimaunx/armada/cmd/armada.Build=$(BUILD)"
 
 $(GOLANGCILINT):
 	curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(GOBIN) v1.17.0

@@ -5,14 +5,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Build and Version
-var (
-	Build   string
-	Version string
-)
-
 // VersionCmd returns a new cobra.Command that displays version and build information
-func VersionCmd() *cobra.Command {
+func VersionCmd(Version, Build string) *cobra.Command {
 	cmd := &cobra.Command{
 		Args:  cobra.NoArgs,
 		Use:   "version",
