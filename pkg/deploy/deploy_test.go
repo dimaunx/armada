@@ -2,6 +2,7 @@ package deploy_test
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/dimaunx/armada/pkg/cluster"
@@ -62,9 +63,9 @@ var _ = Describe("Deploy tests", func() {
 
 			result, err := clientSet.CoreV1().ConfigMaps("kube-system").Get("kube-flannel-cfg", metav1.GetOptions{})
 			Ω(err).ShouldNot(HaveOccurred())
-			fmt.Print(result)
-
-			Expect(len(result.Data)).ShouldNot(BeZero())
+			fmt.Print(result.Data["net-conf.json"])
+			contains := strings.Contains(result.Data["net-conf.json"], cl.PodSubnet)
+			Expect(contains).Should(BeTrue())
 		})
 		It("Should deploy calico resources", func() {
 

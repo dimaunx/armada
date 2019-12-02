@@ -4,7 +4,7 @@ metadata:
   name: nginx-demo
   namespace: default
 spec:
-  selector: 
+  selector:
     matchLabels:
       app: nginx-demo
   template:
@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: nginx-demo
-          image: nginx:local
+          image: nginx:alpine
           ports:
             - containerPort: 80
 ---
