@@ -26,33 +26,32 @@ func DestroyClustersCommand(provider *kind.Provider) *cobra.Command {
 		Long:  "Destroys clusters",
 		RunE: func(cmd *cobra.Command, args []string) error {
 
+			var targetClusters []string
 			if len(flags.Clusters) > 0 {
-				for _, clName := range flags.Clusters {
-					known, err := cluster.IsKnown(clName, provider)
-					if err != nil {
-						log.Fatalf("%s: %v", clName, err)
-					}
-					if known {
-						err := cluster.Destroy(clName, provider)
-						if err != nil {
-							log.Fatalf("%s: %v", clName, err)
-						}
-					} else {
-						log.Errorf("cluster %q not found.", clName)
-					}
-				}
+				targetClusters = append(targetClusters, flags.Clusters...)
 			} else {
 				configFiles, err := ioutil.ReadDir(defaults.KindConfigDir)
 				if err != nil {
 					log.Fatal(err)
 				}
+				for _, configFile := range configFiles {
+					clName := strings.FieldsFunc(configFile.Name(), func(r rune) bool { return strings.ContainsRune(" -.", r) })[2]
+					targetClusters = append(targetClusters, clName)
+				}
+			}
 
-				for _, file := range configFiles {
-					clName := strings.FieldsFunc(file.Name(), func(r rune) bool { return strings.ContainsRune(" -.", r) })[2]
+			for _, clName := range targetClusters {
+				known, err := cluster.IsKnown(clName, provider)
+				if err != nil {
+					log.Fatalf("%s: %v", clName, err)
+				}
+				if known {
 					err := cluster.Destroy(clName, provider)
 					if err != nil {
 						log.Fatalf("%s: %v", clName, err)
 					}
+				} else {
+					log.Errorf("cluster %q not found.", clName)
 				}
 			}
 			return nil

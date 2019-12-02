@@ -179,13 +179,13 @@ var _ = Describe("cluster tests", func() {
 			_ = os.RemoveAll(configPath)
 		})
 	})
-	Context("component: Containers", func() {
+	Context("Containers", func() {
 
 		ctx := context.Background()
 		dockerCli, _ := dockerclient.NewEnvClient()
 
 		BeforeEach(func() {
-			reader, err := dockerCli.ImagePull(ctx, "docker.io/library/alpine", types.ImagePullOptions{})
+			reader, err := dockerCli.ImagePull(ctx, "docker.io/library/alpine:latest", types.ImagePullOptions{})
 			Ω(err).ShouldNot(HaveOccurred())
 			_, err = io.Copy(os.Stdout, reader)
 			Ω(err).ShouldNot(HaveOccurred())
