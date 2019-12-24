@@ -147,5 +147,5 @@ Destroy specific clusters
 [docker]: https://docs.docker.com/install/
 [$GOPATH configured]: https://github.com/golang/go/wiki/SettingGOPATH
 [Releases]: https://github.com/dimaunx/armada/releases/
-[kind release page]: https://github.com/kubernetes-sigs/kind/releases/tag/v0.6.0
+[kind release page]: https://github.com/kubernetes-sigs/kind/releases/tag/v0.6.1
 [kind]: https://github.com/kubernetes-sigs/kind

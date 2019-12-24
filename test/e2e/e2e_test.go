@@ -45,28 +45,15 @@ func CreateEnvironment(flags *createclustercmd.CreateClusterFlagpole, provider *
 
 	log.SetLevel(log.DebugLevel)
 	box := packr.New("configs", "../../configs")
-	var clusters []*cluster.Config
-	for i := 1; i <= flags.NumClusters; i++ {
-		clName := defaults.ClusterNameBase + strconv.Itoa(i)
-		known, err := cluster.IsKnown(clName, provider)
-		if err != nil {
-			return nil, err
-		}
-		if known {
-			log.Infof("✔ Config with the name %q already exists.", clName)
-		} else {
-			cni := createclustercmd.GetCniFromFlags(flags)
-			cl, err := cluster.PopulateConfig(i, flags.ImageName, cni, flags.Retain, flags.Tiller, flags.Overlap, flags.Wait)
-			if err != nil {
-				return nil, err
-			}
-			clusters = append(clusters, cl)
-		}
+
+	targetClusters, err := createclustercmd.GetTargetClusters(provider, flags)
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	var wg sync.WaitGroup
-	wg.Add(len(clusters))
-	for _, cl := range clusters {
+	wg.Add(len(targetClusters))
+	for _, cl := range targetClusters {
 		go func(cl *cluster.Config) {
 			err := cluster.Create(cl, provider, box, &wg)
 			if err != nil {
@@ -76,8 +63,8 @@ func CreateEnvironment(flags *createclustercmd.CreateClusterFlagpole, provider *
 	}
 	wg.Wait()
 
-	wg.Add(len(clusters))
-	for _, cl := range clusters {
+	wg.Add(len(targetClusters))
+	for _, cl := range targetClusters {
 		go func(cl *cluster.Config) {
 			err := cluster.FinalizeSetup(cl, box, &wg)
 			if err != nil {
@@ -86,7 +73,7 @@ func CreateEnvironment(flags *createclustercmd.CreateClusterFlagpole, provider *
 		}(cl)
 	}
 	wg.Wait()
-	return clusters, nil
+	return targetClusters, nil
 }
 
 func TestCluster(t *testing.T) {
@@ -328,7 +315,7 @@ var _ = Describe("E2E Tests", func() {
 			_, err = io.Copy(os.Stdout, reader)
 			Ω(err).ShouldNot(HaveOccurred())
 		})
-		It("Should an image to all the clusters", func() {
+		It("Should load an image to all the clusters", func() {
 			flags := &loadimagecmd.LoadImagesFlagpole{
 				Debug:  true,
 				Images: []string{"alpine:edge"},

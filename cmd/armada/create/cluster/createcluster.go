@@ -68,28 +68,14 @@ func CreateClustersCommand(provider *kind.Provider, box *packr.Box) *cobra.Comma
 				//log.SetReportCaller(true)
 			}
 
-			var clusters []*cluster.Config
-			for i := 1; i <= flags.NumClusters; i++ {
-				clName := defaults.ClusterNameBase + strconv.Itoa(i)
-				known, err := cluster.IsKnown(clName, provider)
-				if err != nil {
-					log.Fatalf("%s: %v", clName, err)
-				}
-				if known {
-					log.Infof("✔ Cluster with the name %q already exists.", clName)
-				} else {
-					cni := GetCniFromFlags(flags)
-					cl, err := cluster.PopulateConfig(i, flags.ImageName, cni, flags.Retain, flags.Tiller, flags.Overlap, flags.Wait)
-					if err != nil {
-						log.Fatal(err)
-					}
-					clusters = append(clusters, cl)
-				}
+			targetClusters, err := GetTargetClusters(provider, flags)
+			if err != nil {
+				log.Fatal(err)
 			}
 
 			var wg sync.WaitGroup
-			wg.Add(len(clusters))
-			for _, cl := range clusters {
+			wg.Add(len(targetClusters))
+			for _, cl := range targetClusters {
 				go func(cl *cluster.Config) {
 					err := cluster.Create(cl, provider, box, &wg)
 					if err != nil {
@@ -101,8 +87,8 @@ func CreateClustersCommand(provider *kind.Provider, box *packr.Box) *cobra.Comma
 			wg.Wait()
 
 			log.Info("Finalizing the clusters setup ...")
-			wg.Add(len(clusters))
-			for _, cl := range clusters {
+			wg.Add(len(targetClusters))
+			for _, cl := range targetClusters {
 				go func(cl *cluster.Config) {
 					err := cluster.FinalizeSetup(cl, box, &wg)
 					if err != nil {
@@ -163,6 +149,29 @@ func CreateClustersCommand(provider *kind.Provider, box *packr.Box) *cobra.Comma
 	cmd.Flags().DurationVar(&flags.Wait, "wait", 5*time.Minute, "amount of minutes to wait for control plane nodes to be ready")
 	cmd.Flags().IntVarP(&flags.NumClusters, "num", "n", 2, "number of clusters to create")
 	return cmd
+}
+
+// GetTargetClusters returns a list of clusters to create
+func GetTargetClusters(provider *kind.Provider, flags *CreateClusterFlagpole) ([]*cluster.Config, error) {
+	var targetClusters []*cluster.Config
+	for i := 1; i <= flags.NumClusters; i++ {
+		clName := defaults.ClusterNameBase + strconv.Itoa(i)
+		known, err := cluster.IsKnown(clName, provider)
+		if err != nil {
+			return nil, err
+		}
+		if known {
+			log.Infof("✔ Cluster with the name %q already exists.", clName)
+		} else {
+			cni := GetCniFromFlags(flags)
+			cl, err := cluster.PopulateConfig(i, flags.ImageName, cni, flags.Retain, flags.Tiller, flags.Overlap, flags.Wait)
+			if err != nil {
+				return nil, err
+			}
+			targetClusters = append(targetClusters, cl)
+		}
+	}
+	return targetClusters, nil
 }
 
 // GetCniFromFlags returns the cni name from flags
